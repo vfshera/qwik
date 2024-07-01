@@ -1,25 +1,40 @@
-import { component$ } from '@builder.io/qwik';
+import { type ReadonlySignal, component$ } from '@builder.io/qwik';
 import { routeLoader$ } from '@builder.io/qwik-city';
 import { getDB } from '~/db';
-import { dbGetOutgoingEdges } from '~/db/sql-edges';
+import { type OutgoingEdge, dbGetOutgoingEdges } from '~/db/sql-edges';
 import { BUCKETS, vectorSum } from '~/stats/vector';
 import Histogram, { delayColors, latencyColors } from '~/components/histogram';
-import { css } from '~/styled-system/css';
 import { SymbolTile } from '~/components/symbol-tile';
 import { ManifestIcon } from '~/components/icons/manifest';
 
-export const useData = routeLoader$(async ({ params, query }) => {
+interface OutgoingInfo {
+  symbol: string;
+  edges: OutgoingEdge[];
+  total: number;
+  manifestHashes: string[];
+  buckets: typeof BUCKETS;
+  publicApiKey: string;
+}
+
+export const useData = routeLoader$<OutgoingInfo>(async ({ params, query }) => {
   const db = getDB();
   const symbol = query.get('symbol') || '';
   const publicApiKey = params.publicApiKey;
   const manifestHashes: string[] = [];
   const edges = await dbGetOutgoingEdges(db, publicApiKey, symbol, manifestHashes);
   const total = edges.reduce((total, edge) => total + vectorSum(edge.delay), 0);
-  return { symbol, edges, total, manifestHashes, buckets: BUCKETS, publicApiKey };
+  return {
+    symbol,
+    edges,
+    total,
+    manifestHashes,
+    buckets: BUCKETS,
+    publicApiKey,
+  };
 });
 
 export default component$(() => {
-  const data = useData();
+  const data: ReadonlySignal<OutgoingInfo> = useData();
   return (
     <div>
       <h1>
@@ -36,13 +51,7 @@ export default component$(() => {
             {data.value.edges.map((edge) => (
               <tr key={edge.to}>
                 <td>
-                  <ManifestIcon
-                    class={css({
-                      display: 'inline-block',
-                      marginBottom: '2px',
-                      marginRight: '2px',
-                    })}
-                  />
+                  <ManifestIcon />
                   {edge.manifestHash}
                 </td>
                 <td>
@@ -50,7 +59,7 @@ export default component$(() => {
                     <SymbolTile symbol={edge.to} />
                   </a>
                 </td>
-                <td class={css({ paddingLeft: '1em' })}>
+                <td>
                   {vectorSum(edge.delay)} / {data.value.total}
                 </td>
                 <td>

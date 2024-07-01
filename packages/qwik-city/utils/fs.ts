@@ -33,7 +33,9 @@ export function getPathnameFromDirPath(opts: NormalizedPluginOptions, dirPath: s
     // remove grouped layout segments
     .filter((segment) => !isGroupedLayoutName(segment))
     .join('/');
-
+  if (pathname === '') {
+    return '/';
+  }
   return pathname;
 }
 
@@ -92,7 +94,8 @@ export function normalizePathSlash(path: string) {
  *
  * @param routesDir
  * @param fsPath
- * @param explicitFileType Add to avoid collisions between different types of modules. `Menu` and `Layout` files are named based on their path (eg. /routes/about/menu.md => AboutMenu)
+ * @param explicitFileType Add to avoid collisions between different types of modules. `Menu` and
+ *   `Layout` files are named based on their path (eg. /routes/about/menu.md => AboutMenu)
  */
 export function createFileId(
   routesDir: string,

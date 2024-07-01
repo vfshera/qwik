@@ -3,14 +3,21 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 import { type BuildConfig } from './util';
 import { format } from 'prettier';
-// import { toSnakeCase } from '../packages/docs/src/utils/utils';
 
-export async function generateApiMarkdownDocs(config: BuildConfig, apiJsonInputDir: string) {
+export async function generateQwikApiMarkdownDocs(config: BuildConfig, apiJsonInputDir: string) {
   await generateApiMarkdownPackageDocs(config, apiJsonInputDir, ['qwik']);
+}
+
+export async function generateQwikCityApiMarkdownDocs(
+  config: BuildConfig,
+  apiJsonInputDir: string
+) {
   await generateApiMarkdownPackageDocs(config, apiJsonInputDir, ['qwik-city']);
   await generateApiMarkdownPackageDocs(config, apiJsonInputDir, ['qwik-city', 'middleware']);
   await generateApiMarkdownPackageDocs(config, apiJsonInputDir, ['qwik-city', 'static']);
   await generateApiMarkdownPackageDocs(config, apiJsonInputDir, ['qwik-city', 'vite']);
+
+  // doesn't really belong here, ah well
   await generateApiMarkdownPackageDocs(config, apiJsonInputDir, ['qwik-react']);
 }
 
@@ -63,10 +70,10 @@ async function generateApiMarkdownSubPackageDocs(
     }
   );
 
-  createApiData(config, docsApiJsonPath, apiOuputDir, subPkgName);
+  await createApiData(config, docsApiJsonPath, apiOuputDir, subPkgName);
 }
 
-function createApiData(
+async function createApiData(
   config: BuildConfig,
   docsApiJsonPath: string,
   apiOuputDir: string,
@@ -185,10 +192,10 @@ function createApiData(
   writeFileSync(apiJsonPath, JSON.stringify(apiData, null, 2));
 
   const apiMdPath = join(docsDir, `index.md`);
-  writeFileSync(apiMdPath, createApiMarkdown(apiData));
+  writeFileSync(apiMdPath, await createApiMarkdown(apiData));
 }
 
-function createApiMarkdown(a: ApiData) {
+async function createApiMarkdown(a: ApiData) {
   let md: string[] = [];
 
   md.push(`---`);
@@ -219,7 +226,7 @@ function createApiMarkdown(a: ApiData) {
     }
   }
 
-  const mdOutput = format(md.join('\n'), {
+  const mdOutput = await format(md.join('\n'), {
     parser: 'markdown',
   });
   return mdOutput;
@@ -260,17 +267,17 @@ function getSafeFilenameForName(name: string): string {
 
 function getEditUrl(config: BuildConfig, fileUrlPath: string | undefined) {
   if (fileUrlPath) {
-    const rootRelPath = fileUrlPath.split(`/`).slice(2).join('/');
+    const rootRelPath = fileUrlPath.slice(fileUrlPath.indexOf('dts-out') + 'dts-out'.length + 1);
 
     const tsxPath = join(config.rootDir, rootRelPath).replace(`.d.ts`, `.tsx`);
     if (existsSync(tsxPath)) {
-      const url = new URL(rootRelPath, `https://github.com/BuilderIO/qwik/tree/main/`);
+      const url = new URL(rootRelPath, `https://github.com/QwikDev/qwik/tree/main/`);
       return url.href.replace(`.d.ts`, `.tsx`);
     }
 
     const tsPath = join(config.rootDir, rootRelPath).replace(`.d.ts`, `.ts`);
     if (existsSync(tsPath)) {
-      const url = new URL(rootRelPath, `https://github.com/BuilderIO/qwik/tree/main/`);
+      const url = new URL(rootRelPath, `https://github.com/QwikDev/qwik/tree/main/`);
       return url.href.replace(`.d.ts`, `.ts`);
     }
   }

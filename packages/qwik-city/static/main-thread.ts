@@ -9,6 +9,7 @@ import { relative } from 'node:path';
 import { bold, green, dim, red, magenta } from 'kleur/colors';
 import { formatError } from '../buildtime/vite/format-error';
 import { buildErrorMessage } from 'vite';
+import { extractParamNames } from './extract-params';
 
 export async function mainThread(sys: System) {
   const opts = sys.getOptions();
@@ -140,7 +141,7 @@ export async function mainThread(sys: System) {
 
       const addToQueue = (pathname: string | undefined | null, params: PathParams | undefined) => {
         if (pathname) {
-          pathname = new URL(pathname, `https://qwik.builder.io`).pathname;
+          pathname = new URL(pathname, `https://qwik.dev`).pathname;
 
           if (pathname !== opts.basePathname) {
             if (trailingSlash) {
@@ -170,9 +171,10 @@ export async function mainThread(sys: System) {
       };
 
       const loadStaticRoute = async (route: RouteData) => {
-        const [_, loaders, paramNames, originalPathname] = route;
+        const [routeName, loaders, originalPathname] = route;
         const modules = await Promise.all(loaders.map((loader) => loader()));
         const pageModule: PageModule = modules[modules.length - 1] as any;
+        const paramNames = extractParamNames(routeName);
 
         // if a module has a "default" export, it's a page module
         // if a module has a "onGet" or "onRequest" export, it's an endpoint module for static generation
@@ -183,7 +185,13 @@ export async function mainThread(sys: System) {
           if (Array.isArray(paramNames) && paramNames.length > 0) {
             if (typeof pageModule.onStaticGenerate === 'function' && paramNames.length > 0) {
               // dynamic route page module
-              const staticGenerate = await pageModule.onStaticGenerate();
+              const staticGenerate = await pageModule.onStaticGenerate({
+                env: {
+                  get(key: string) {
+                    return sys.getEnv(key);
+                  },
+                },
+              });
               if (Array.isArray(staticGenerate.params)) {
                 for (const params of staticGenerate.params) {
                   const pathname = getPathnameForDynamicRoute(
@@ -228,7 +236,7 @@ function validateOptions(opts: StaticGenerateOptions) {
     throw new Error(`Missing "origin" option`);
   }
   siteOrigin = siteOrigin.trim();
-  if (!siteOrigin.startsWith('https://') && !siteOrigin.startsWith('http://')) {
+  if (!/:\/\//.test(siteOrigin) || siteOrigin.startsWith('://')) {
     throw new Error(
       `"origin" must start with a valid protocol, such as "https://" or "http://", received "${siteOrigin}"`
     );

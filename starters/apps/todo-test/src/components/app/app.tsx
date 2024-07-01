@@ -7,7 +7,7 @@ import {
 import { Footer } from "../footer/footer";
 import { Header } from "../header/header";
 import { Body } from "../body/body";
-import { TODOS, Todos } from "../../state/state";
+import { TODOS, type Todos } from "../../state/state";
 import styles from "./index.css?inline";
 
 /**
@@ -30,7 +30,7 @@ export const App = component$(() => {
       ],
       nextItemId: 3,
     },
-    { deep: true }
+    { deep: true },
   );
   useContextProvider(TODOS, todos);
 

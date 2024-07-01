@@ -14,6 +14,10 @@ Therefore, to solve the problem in the best possible way, please create a minima
 
 Without enough information to reproduce the issue, we will close it because we can't recreate and solve it.
 
+## Triaging Issues
+
+If you're interested in helping out with triaging issues, please follow the [Triaging Guide](./contributing/TRIAGE.md).
+
 ## Submitting a Pull Request (PR)
 
 ### Branch Organization
@@ -22,7 +26,7 @@ We adopt [trunk-based development](https://trunkbaseddevelopment.com/) therefore
 
 ### Good first issue
 
-The issues marked with [_Good first issue_](https://github.com/BuilderIO/qwik/issues?q=is:open+is:issue+label:%22good+first+issue%22) are a good starting point to familiarize yourself with the project.
+The issues marked with [_Good first issue_](https://github.com/QwikDev/qwik/issues?q=is%3Aissue+is%3Aopen+label%3A%22COMMUNITY%3A++good+first+issue%22) are a good starting point to familiarize yourself with the project.
 
 Before solving the problem, please check with the maintainers that the issue is still relevant. Feel free to leave a comment on the issue to show your intention to work on it and prevent other people from unintentionally duplicating your effort.
 
@@ -36,7 +40,7 @@ Before submitting a pull request, consider the following guidelines:
 - Run `pnpm fmt` to lint the code.
 - Commit your code with a good commit message [using "Commitizen"](#committing-using-commitizen).
 - Push your branch to GitHub: `git push origin my-branch`
-- In GitHub, send a pull request to `BuilderIO:main`.
+- In GitHub, send a pull request to `QwikDev:main`.
 
 > If you aren't sure your PR is ready, open it as a [draft](https://github.blog/2019-02-14-introducing-draft-pull-requests/) to make it clear to the maintainer.
 
@@ -49,7 +53,7 @@ That's why if the CI checks aren't passing your PR branch is probably not up to 
 
 1. Merge `main` into your PR branch
 2. Run `pnpm api.update`
-3. Run `pnpm build.full`
+3. Run `pnpm build.local` or `pnpm build.full` if you made a change to the Rust code
 4. Commit and push any changes as a result of the above steps
 
 ## Local development
@@ -61,18 +65,36 @@ This is the best approach because all required dependencies will be installed in
 You need to have these tools up and running in your local machine:
 
 - [VSCode](https://code.visualstudio.com/)
-- [Docker](https://www.docker.com/)
+
+and either [Docker](https://www.docker.com/) or [Nix](https://nixos.org).
 
 ### Steps
+
+If you want to use Docker:
 
 - Install the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension in your VSCode.
 - Once installed you will be prompted to 'Reopen the folder to develop in a container [learn more](https://code.visualstudio.com/docs/devcontainers/containers) or Clone repository in Docker volume for [better I/O performance](https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-a-git-repository-or-github-pr-in-an-isolated-container-volume)'. If you're not prompted, you can run the `Dev Containers: Open Folder in Container` command from the [VSCode Command Palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
 
+Alternatively you can use [devcontainers/cli](https://github.com/devcontainers/cli):
+
+- Install devcontainers following their documentation.
+- In your terminal navigate to the Qwik's project root directory.
+- Then run `devcontainer up --workspace-folder .`. This command will start a Docker container with all required environment dependencies.
+
+If you want to use Nix:
+
+- Install [Nix](https://nixos.org/download.html) on your machine and enable flakes. The [DetSys installer](https://github.com/DeterminateSystems/nix-installer) makes that easy.
+- run `nix develop` in the project root.
+
+Nix+Direnv (optional):
+
+You can additionally use [direnv](https://direnv.net/) to automatically load the dev environment when you enter the project directory.
+
 ### Using development container without Dev Containers and VSCode
 
-If you would like to make use of the devlopment container solution, but don't use VSCode or Dev Containers, you still can do so, by following steps:
+If you would like to make use of the development container solution, but don't use VSCode or Dev Containers, you still can do so, by following steps:
 
-- Build development container locally: `cd .devcontainers; docker build -t qwik-container .`
+- Build development container locally: `cd .devcontainer; docker build -t qwik-container .`
 - Run development container from Qwik project root, binding the directory to container: `cd ..; docker run --rm -d --name qwik-container -p 3300:3300 -p 9229:9299 -v $PWD:/home/circleci/project -t qwik-container`
 
 Docker command does:
@@ -120,7 +142,7 @@ If you're not able to use the dev container, follow these instructions:
 
 1. Make sure [Rust](https://www.rust-lang.org/tools/install) is installed.
 2. Install [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) with `cargo install wasm-pack` .
-3. Node version >= `16.8.0`.
+3. Node version >= `18`.
 4. Make sure you have [pnpm](https://pnpm.io/installation) installed.
 5. run `pnpm install`
 
@@ -133,18 +155,43 @@ If you're not able to use the dev container, follow these instructions:
 
 ## Development
 
-To build Qwik for local development, install the dev dependencies using [pnpm](https://pnpm.io/):
+To build Qwik for local development, install the dev dependencies using [pnpm](https://pnpm.io/) and then do an initial build:
 
 ```shell
-pnpm install
+pnpm install && pnpm build.local
 ```
 
 ### Fast build
 
-It will build all JS and all packages, but not Rust.
+It will build only Qwik and Qwik City.
 
 ```shell
-pnpm build
+pnpm build.core
+```
+
+### Custom build
+
+E.g. to build only the react integration:
+
+```shell
+pnpm build --qwikreact
+```
+
+Run without arguments for all supported flags. Notable:
+
+- `--tsm`: typecheck
+- `--build`: Qwik (you'll probably also need `--api`)
+- `--qwikcity`: Qwik City (you'll probably also need `--api`)
+- `--qwikreact`: Qwik React
+- `--qwiklabs`: Qwik React
+- `--eslint`: Eslint plugin
+
+### Full build without Rust
+
+It will build everything except Rust prerequisites and the optimizer binaries.
+
+```shell
+pnpm build.local
 ```
 
 ### Full build
@@ -210,31 +257,20 @@ To use your build in your project, follow these steps:
     yarn link @builder.io/qwik @builder.io/qwik-city
    ```
 
-If you can't use package linking (npm link) just copy the contents of `package/qwik/dist` into your projects' `node_modules/@builder.io/qwik` folder.
+If you can't use package linking (npm link) just copy the contents of `packages/qwik/dist` into your projects' `node_modules/@builder.io/qwik` folder, and/or the contents of `packages/qwik-city/lib` into your projects' `node_modules/@builder.io/qwik-city` folder.
 
 ### Test against the docs site:
 
-1. Go to `packages/docs/package.json` and update:
-
-   ```diff
-
-   -- "@builder.io/qwik": "0.17.4",
-   -- "@builder.io/qwik-city": "0.1.0-beta13",
-
-   ++ "@builder.io/qwik": "workspace:*",
-   ++ "@builder.io/qwik-city": "workspace:*",
-   ```
-
-2. At the root of the Qwik repo folder run:
+1. At the root of the Qwik repo folder run:
 
 ```shell
 pnpm install
 ```
 
-3. Run the docs site:
+2. Run the docs site:
 
 ```shell
-cd packages/docs && pnpm start
+pnpm docs.dev
 ```
 
 ### To open the test apps for debugging run:
@@ -245,19 +281,11 @@ pnpm serve
 
 ### Unit Tests Only
 
-Unit tests use [uvu](https://github.com/lukeed/uvu)
+Unit tests use [vitest](https://vitest.dev)
 
 ```shell
 pnpm test.unit
 ```
-
-To keep _uvu_ open with the watch mode, run:
-
-```shell
-pnpm test.watch
-```
-
-> Note that the `test.watch` command isn't necessary if you're running the `pnpm start` command, since `start` will also concurrently run the _uvu_ watch process.
 
 ### E2E Tests Only
 
@@ -277,13 +305,23 @@ pnpm --filter qwik-docs start
 
 More commands can be found in each package's package.json scripts section.
 
+### Updating dependencies
+
+To update all dependencies, run:
+
+```shell
+pnpm deps
+```
+
+This will show an interactive UI to update all dependencies. Be careful about performing major updates, especially for the docs site, since not all functionality has test coverage there.
+
 ## Starter CLI `create-qwik`
 
-- [Starter CLI](https://github.com/BuilderIO/qwik/blob/main/starters/README.md)
+- [Starter CLI](https://github.com/QwikDev/qwik/blob/main/starters/README.md)
 
 ## Pull Request
 
-- [Open Qwik in StackBlitz Codeflow](https://pr.new/github.com/BuilderIO/qwik/)
+- [Open Qwik in StackBlitz Codeflow](https://pr.new/github.com/QwikDev/qwik/)
 - Review PR in StackBlitz
   ![image](https://user-images.githubusercontent.com/4918140/195581745-8dfca1f9-2dcd-4f6a-b7aa-705f3627f8fa.png)
 
@@ -316,7 +354,7 @@ pnpm fmt
 1. Run `pnpm release.prepare`, which will test, lint and build.
 2. Use the interactive UI to select the next version, which will update the `package.json` `version` property, add the git change, and start a commit message.
 3. Create a PR with the `package.json` change to merge to `main`.
-4. After the `package.json` with the updated version is in `main`, click the [Run Workflow](https://github.com/BuilderIO/qwik/actions/workflows/ci.yml) button from the "Qwik CI" GitHub Action workflow.
+4. After the `package.json` with the updated version is in `main`, click the [Run Workflow](https://github.com/QwikDev/qwik/actions/workflows/ci.yml) button from the "Qwik CI" GitHub Action workflow.
 5. Select the NPM dist-tag that should be used for this version, then click "Run Workflow".
 6. The GitHub Action will dispatch the workflow to build `@builder.io/qwik`, `@builder.io/qwik-city` and each of their submodules, build WASM and native bindings, and validate the package before publishing to NPM.
 7. If the build is successful and all tests and validation passes, the workflow will automatically publish to NPM, commit a git tag to the repo, and create a GitHub release.

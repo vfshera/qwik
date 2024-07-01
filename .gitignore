@@ -7,13 +7,18 @@
 etc
 temp
 .history
+.lh
 *.
 **/*.log
 *.node
 
 # Application
 qwik-app/
-**/server/
+/server/
+/starters/**/server/
+/packages/*/server/
+!/packages/qwik/server/
+/packages/*/src/styled-system/
 todo-express/
 target
 !/packages/docs/src/routes/demo/events/target
@@ -31,9 +36,10 @@ lib
 tsdoc-metadata.json
 
 # IDE and local environment
-.vscode/settings.json
 .idea
 .eslintcache
+test-results
+.direnv
 
 # Package Managers
 .yarn/*
@@ -42,3 +48,4 @@ tsdoc-metadata.json
 
 # Local Netlify folder
 .netlify
+sandbox

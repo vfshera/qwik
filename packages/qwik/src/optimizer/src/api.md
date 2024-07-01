@@ -96,6 +96,19 @@ export interface InlineEntryStrategy {
 }
 
 // @public (undocumented)
+export interface InsightManifest {
+    // (undocumented)
+    manual: Record<string, string>;
+    // (undocumented)
+    prefetch: {
+        route: string;
+        symbols: string[];
+    }[];
+    // (undocumented)
+    type: 'smart';
+}
+
+// @public (undocumented)
 export type MinifyMode = 'simplify' | 'none';
 
 // @public (undocumented)
@@ -111,6 +124,8 @@ export interface Optimizer {
 export interface OptimizerOptions {
     // (undocumented)
     binding?: any;
+    inlineStylesUpToBytes?: number;
+    sourcemap?: boolean;
     // (undocumented)
     sys?: OptimizerSystem;
 }
@@ -197,17 +212,13 @@ export interface QwikBundle {
     symbols?: string[];
 }
 
-// @public (undocumented)
+// @public
 export interface QwikManifest {
-    // (undocumented)
     bundles: {
         [fileName: string]: QwikBundle;
     };
-    // (undocumented)
     injections?: GlobalInjections[];
-    // (undocumented)
     manifestHash: string;
-    // (undocumented)
     mapping: {
         [symbolName: string]: string;
     };
@@ -223,7 +234,6 @@ export interface QwikManifest {
     platform?: {
         [name: string]: string;
     };
-    // (undocumented)
     symbols: {
         [symbolName: string]: QwikSymbol;
     };
@@ -241,6 +251,7 @@ export interface QwikRollupPluginOptions {
     csr?: boolean;
     debug?: boolean;
     entryStrategy?: EntryStrategy;
+    lint?: boolean;
     manifestInput?: QwikManifest;
     manifestOutput?: (manifest: QwikManifest) => Promise<void> | void;
     // (undocumented)
@@ -296,9 +307,13 @@ export interface QwikVitePlugin {
 // @public (undocumented)
 export interface QwikVitePluginApi {
     // (undocumented)
+    getAssetsDir: () => string | undefined;
+    // (undocumented)
     getClientOutDir: () => string | null;
     // (undocumented)
     getClientPublicOutDir: () => string | null;
+    // (undocumented)
+    getInsightsManifest: (clientOutDir?: string | null) => Promise<InsightManifest | null>;
     // (undocumented)
     getManifest: () => QwikManifest | null;
     // (undocumented)
@@ -364,10 +379,10 @@ export type SourceMapsOption = 'external' | 'inline' | undefined | null;
 export type SymbolMapper = Record<string, readonly [symbol: string, chunk: string]>;
 
 // @public (undocumented)
-export type SymbolMapperFn = (symbolName: string, mapper: SymbolMapper | undefined) => readonly [symbol: string, chunk: string] | undefined;
+export type SymbolMapperFn = (symbolName: string, mapper: SymbolMapper | undefined, parent?: string) => readonly [symbol: string, chunk: string] | undefined;
 
 // @public (undocumented)
-export type SystemEnvironment = 'node' | 'deno' | 'webworker' | 'browsermain' | 'unknown';
+export type SystemEnvironment = 'node' | 'deno' | 'bun' | 'webworker' | 'browsermain' | 'unknown';
 
 // @public (undocumented)
 export interface TransformFsOptions extends TransformOptions {
@@ -385,6 +400,8 @@ export interface TransformModule {
     isEntry: boolean;
     // (undocumented)
     map: string | null;
+    // (undocumented)
+    origPath: string | null;
     // (undocumented)
     path: string;
 }

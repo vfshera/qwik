@@ -52,9 +52,11 @@ This method works like an async memoized function that runs whenever some tracke
 
 The status can be one of the following:
 
-- 'pending' - the data is not yet available.
-- 'resolved' - the data is available.
-- 'rejected' - the data is not available due to an error or timeout.
+- `pending` - the data is not yet available.
+- `resolved` - the data is available.
+- `rejected` - the data is not available due to an error or timeout.
+
+Avoid using a `try/catch` statement in `useResource$`. If you catch the error instead of passing it, the resource status will never be `rejected`.
 
 ### Example
 
@@ -81,7 +83,7 @@ The `taskFn` only executes if the observed inputs change. To observe the inputs,
 
 ### Example
 
-The `useTask` function is used to observe the `state.count` property. Any changes to the `state.count` cause the `taskFn` to execute which in turn updates the `state.doubleCount` to the double of `state.count`.
+The `useTask` function is used to observe the `store.count` property. Any changes to the `store.count` cause the `taskFn` to execute which in turn updates the `store.doubleCount` to the double of `store.count`.
 
 <docs code="./examples.tsx#use-task"/>
 
@@ -194,7 +196,7 @@ At times it is necessary to store values on a store that are non-serializable. N
 
 You can use `noSerialize()` to mark a value as non-serializable. The value is persisted in the Store but does not survive serialization. The implication is that when your application is resumed, the value of this object will be `undefined`. You will be responsible for recovering from this.
 
-See: [noSerialize Tutorial](http://qwik.builder.io/tutorial/store/no-serialize)
+See: [noSerialize Tutorial](http://qwik.dev/tutorial/store/no-serialize)
 
 @public
 
@@ -245,6 +247,10 @@ At times it may be necessary to resolve a `QRL` reference to the actual value. T
 <docs code="./examples.tsx#qrl-usage-import"/>
 
 NOTE: `element` is needed because `QRL`s are relative and need a base location to resolve against. The base location is encoded in the HTML in the form of `<div q:base="/url">`.
+
+## `QRL.resolved`
+
+Once `QRL.resolve()` returns, the value is stored under `QRL.resolved`. This allows the value to be used without having to await `QRL.resolve()` again.
 
 ## Question: Why not just use `import()`?
 

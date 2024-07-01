@@ -1,10 +1,9 @@
-import { test } from 'uvu';
-import { equal } from 'uvu/assert';
-import type { LinkProps } from './link-component';
+import { assert, test } from 'vitest';
 import {
   getClientDataPath,
   getClientNavPath,
-  getPrefetchDataset,
+  shouldPrefetchData,
+  shouldPrefetchSymbols,
   isSameOrigin,
   isSameOriginDifferentPathname,
   isSamePath,
@@ -61,7 +60,7 @@ import {
   const a = new URL(t.a);
   const b = new URL(t.b);
   test(`isSameOriginDifferentPathname(${a},${b})`, () => {
-    equal(isSameOriginDifferentPathname(a, b), t.expect);
+    assert.equal(isSameOriginDifferentPathname(a, b), t.expect);
   });
 });
 
@@ -72,7 +71,7 @@ import {
 ].forEach((t) => {
   test(`getClientEndpointUrl("${t.pathname}")`, () => {
     const endpointPath = getClientDataPath(t.pathname);
-    equal(endpointPath, t.expect);
+    assert.equal(endpointPath, t.expect);
   });
 });
 
@@ -84,82 +83,82 @@ import {
 ].forEach((t) => {
   test(`getClientEndpointUrl("${t.pathname}", "${t.search}")`, () => {
     const endpointPath = getClientDataPath(t.pathname, t.search);
-    equal(endpointPath, t.expect);
+    assert.equal(endpointPath, t.expect);
   });
 });
 
 [
   {
-    url: 'http://qwik.builder.io/',
+    url: 'http://qwik.dev/',
     expect: '/',
   },
   {
-    url: 'http://qwik.builder.io/about',
+    url: 'http://qwik.dev/about',
     expect: '/about',
   },
   {
-    url: 'http://qwik.builder.io/about?qs=1',
+    url: 'http://qwik.dev/about?qs=1',
     expect: '/about?qs=1',
   },
   {
-    url: 'http://qwik.builder.io/about#hash',
+    url: 'http://qwik.dev/about#hash',
     expect: '/about#hash',
   },
 ].forEach((t) => {
   test(`toPath("${t.url}")`, () => {
     const url = new URL(t.url);
-    equal(toPath(url), t.expect);
+    assert.equal(toPath(url), t.expect);
   });
 });
 
 [
   {
-    a: 'http://qwik.builder.io/',
-    b: 'http://qwik.builder.io/',
+    a: 'http://qwik.dev/',
+    b: 'http://qwik.dev/',
     expect: true,
   },
   {
-    a: 'http://qwik.builder.io/',
-    b: 'http://qwik.builder.io/#hash',
+    a: 'http://qwik.dev/',
+    b: 'http://qwik.dev/#hash',
     expect: true,
   },
   {
-    a: 'http://qwik.builder.io/',
-    b: 'http://qwik.builder.io/about',
+    a: 'http://qwik.dev/',
+    b: 'http://qwik.dev/about',
     expect: false,
   },
   {
-    a: 'http://qwik.builder.io/',
-    b: 'http://qwik.builder.io/?qs',
+    a: 'http://qwik.dev/',
+    b: 'http://qwik.dev/?qs',
     expect: false,
   },
   {
-    a: 'http://qwik.builder.io/?qs',
-    b: 'http://qwik.builder.io/?qs',
+    a: 'http://qwik.dev/?qs',
+    b: 'http://qwik.dev/?qs',
     expect: true,
   },
   {
-    a: 'http://qwik.builder.io/?qs#hash',
-    b: 'http://qwik.builder.io/?qs',
+    a: 'http://qwik.dev/?qs#hash',
+    b: 'http://qwik.dev/?qs',
     expect: true,
   },
 ].forEach((t) => {
   test(`isSamePath(${t.a}, ${t.b})`, () => {
-    equal(isSamePath(new URL(t.a), new URL(t.b)), t.expect);
+    assert.equal(isSamePath(new URL(t.a), new URL(t.b)), t.expect);
   });
 });
 
 test(`isSameOrigin`, () => {
-  equal(
-    isSameOrigin(new URL('http://qwik.builder.io/'), new URL('http://qwik.builder.io/about-us')),
+  assert.equal(
+    isSameOrigin(new URL('http://qwik.dev/'), new URL('http://qwik.dev/about-us')),
     true
   );
-  equal(
-    isSameOrigin(new URL('https://qwik.builder.io/'), new URL('http://qwik.builder.io/about-us')),
+  assert.equal(
+    isSameOrigin(new URL('https://qwik.dev/'), new URL('http://qwik.dev/about-us')),
     false
   );
-  equal(
-    isSameOrigin(new URL('https://builder.io/'), new URL('http://qwik.builder.io/about-us')),
+  assert.equal(
+    isSameOrigin(new URL('https://builder.io/'), new URL('http://qwik.dev/about-us')),
     false
   );
 });
@@ -182,70 +181,102 @@ test(`isSameOrigin`, () => {
 ].forEach((t) => {
   test(`getClientNavPath ${t.props.href}`, () => {
     const baseUrl = new URL('https://qwik.dev/');
-    equal(getClientNavPath(t.props, { url: baseUrl }), t.expect, `${t.props.href} ${t.expect}`);
+    assert.equal(
+      getClientNavPath(t.props, { url: baseUrl }),
+      t.expect,
+      `${t.props.href} ${t.expect}`
+    );
   });
 });
 
-test('no prefetch, missing clientNavPath', () => {
-  const props: LinkProps = { prefetch: true };
+test('missing clientNavPath', () => {
   const clientNavPath = null;
-  const currentLoc = new URL('https://qwik.builder.io/contact');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), null);
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), false);
 });
 
-test('no prefetch, path and current path the same, has querystring and hash', () => {
-  const props: LinkProps = {};
+test('path and current path the same, has different querystring and hash', () => {
   const clientNavPath = '/about?qs#hash';
-  const currentLoc = new URL('https://qwik.builder.io/about');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), null);
+  const currentLoc = new URL('https://qwik.dev/about');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), true);
 });
 
-test('no prefetch, path and current path the same', () => {
-  const props: LinkProps = {};
+test('path and current path the same, querystring the same', () => {
+  const clientNavPath = '/about?qs';
+  const currentLoc = new URL('https://qwik.dev/about?qs');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), false);
+});
+
+test('path and current path the same', () => {
   const clientNavPath = '/about';
-  const currentLoc = new URL('https://qwik.builder.io/about');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), null);
+  const currentLoc = new URL('https://qwik.dev/about');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), false);
+});
+
+test('path and current path the same, different trailing slash', () => {
+  const clientNavPath = '/about/';
+  const currentLoc = new URL('https://qwik.dev/about');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), false);
 });
 
 test('valid prefetchUrl, has querystring and hash', () => {
-  const props: LinkProps = {
-    prefetch: true,
-  };
   const clientNavPath = '/about?qs#hash';
-  const currentLoc = new URL('https://qwik.builder.io/contact');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), '');
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), true);
 });
 
 test('valid prefetchUrl, trailing slash', () => {
-  const props: LinkProps = {
-    prefetch: true,
-  };
   const clientNavPath = '/about/';
-  const currentLoc = new URL('https://qwik.builder.io/contact');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), '');
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), true);
 });
 
-test('valid prefetchUrl, prefetch true', () => {
-  const props: LinkProps = { prefetch: true };
+test('valid prefetchUrl', () => {
   const clientNavPath = '/about';
-  const currentLoc = new URL('https://qwik.builder.io/contact');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), '');
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchData(clientNavPath, { url: currentLoc }), true);
 });
 
-test('valid prefetchUrl, add by default', () => {
-  const props: LinkProps = {
-    prefetch: true,
-  };
+// shouldPrefetchSymbols.
+// ======================
+test('missing clientNavPath', () => {
+  const clientNavPath = null;
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchSymbols(clientNavPath, { url: currentLoc }), false);
+});
+
+test('path and current path the same, has different querystring and hash', () => {
+  const clientNavPath = '/about?qs#hash';
+  const currentLoc = new URL('https://qwik.dev/about');
+  assert.equal(shouldPrefetchSymbols(clientNavPath, { url: currentLoc }), false);
+});
+
+test('path and current path the same, different trailing slash', () => {
+  const clientNavPath = '/about/';
+  const currentLoc = new URL('https://qwik.dev/about');
+  assert.equal(shouldPrefetchSymbols(clientNavPath, { url: currentLoc }), false);
+});
+
+test('path and current path the same', () => {
   const clientNavPath = '/about';
-  const currentLoc = new URL('https://qwik.builder.io/contact');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), '');
+  const currentLoc = new URL('https://qwik.dev/about');
+  assert.equal(shouldPrefetchSymbols(clientNavPath, { url: currentLoc }), false);
 });
 
-test('prefetch false', () => {
-  const props: LinkProps = { prefetch: false };
+test('valid prefetchUrl, has querystring and hash', () => {
+  const clientNavPath = '/about?qs#hash';
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchSymbols(clientNavPath, { url: currentLoc }), true);
+});
+
+test('valid prefetchUrl, trailing slash', () => {
+  const clientNavPath = '/about/';
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchSymbols(clientNavPath, { url: currentLoc }), true);
+});
+
+test('valid prefetchUrl', () => {
   const clientNavPath = '/about';
-  const currentLoc = new URL('https://qwik.builder.io/contact');
-  equal(getPrefetchDataset(props, clientNavPath, { url: currentLoc }), null);
+  const currentLoc = new URL('https://qwik.dev/contact');
+  assert.equal(shouldPrefetchSymbols(clientNavPath, { url: currentLoc }), true);
 });
-
-test.run();

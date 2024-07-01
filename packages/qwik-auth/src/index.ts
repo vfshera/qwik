@@ -1,18 +1,19 @@
+import type { AuthConfig } from '@auth/core';
 import { Auth, skipCSRFCheck } from '@auth/core';
-import type { AuthAction, AuthConfig, Session } from '@auth/core/types';
+import type { AuthAction, Session } from '@auth/core/types';
 import { implicit$FirstArg, type QRL } from '@builder.io/qwik';
 import {
   globalAction$,
   routeLoader$,
-  type RequestEvent,
-  type RequestEventCommon,
   z,
   zod$,
+  type RequestEvent,
+  type RequestEventCommon,
 } from '@builder.io/qwik-city';
 import { isServer } from '@builder.io/qwik/build';
 import { parseString, splitCookiesString } from 'set-cookie-parser';
 
-export type GetSessionResult = Promise<Session | null>;
+export type GetSessionResult = Promise<{ data: Session | null; cookie: any }>;
 export type QwikAuthConfig = AuthConfig;
 
 const actions: AuthAction[] = [
@@ -34,11 +35,11 @@ export function serverAuthQrl(authOptions: QRL<(ev: RequestEventCommon) => QwikA
           '\x1b[33mWARNING: callbackUrl is deprecated - use options.callbackUrl instead\x1b[0m'
         );
       }
-      const { callbackUrl = deprecated ?? getCurrentPageForAction(req), ...rest } = options ?? {};
+      const { callbackUrl = deprecated ?? defaultCallbackURL(req), ...rest } = options ?? {};
 
       const isCredentials = providerId === 'credentials';
 
-      const auth = await authOptions(req);
+      const auth = await patchAuthOptions(authOptions, req);
       const body = new URLSearchParams({ callbackUrl: callbackUrl as string });
       Object.entries(rest).forEach(([key, value]) => {
         body.set(key, String(value));
@@ -50,6 +51,11 @@ export function serverAuthQrl(authOptions: QRL<(ev: RequestEventCommon) => QwikA
       const signInUrl = `${baseSignInUrl}?${new URLSearchParams(authorizationParams)}`;
 
       const data = await authAction(body, req, signInUrl, auth);
+
+      // set authjs.callback-url cookie. Fix for https://github.com/QwikDev/qwik/issues/5227
+      req.cookie.set('authjs.callback-url', callbackUrl, {
+        path: '/',
+      });
 
       if (data.url) {
         throw req.redirect(301, data.url);
@@ -73,8 +79,8 @@ export function serverAuthQrl(authOptions: QRL<(ev: RequestEventCommon) => QwikA
 
   const useAuthSignout = globalAction$(
     async ({ callbackUrl }, req) => {
-      callbackUrl ??= getCurrentPageForAction(req);
-      const auth = await authOptions(req);
+      callbackUrl ??= defaultCallbackURL(req);
+      const auth = await patchAuthOptions(authOptions, req);
       const body = new URLSearchParams({ callbackUrl });
       await authAction(body, req, `/api/auth/signout`, auth);
     },
@@ -93,9 +99,12 @@ export function serverAuthQrl(authOptions: QRL<(ev: RequestEventCommon) => QwikA
 
       const action = req.url.pathname.slice(prefix.length + 1).split('/')[0] as AuthAction;
 
-      const auth = await authOptions(req);
+      const auth = await patchAuthOptions(authOptions, req);
       if (actions.includes(action) && req.url.pathname.startsWith(prefix + '/')) {
-        const res = await Auth(req.request, auth);
+        // Casting to `Response` because, something is off with the types in `@auth/core` here:
+        // Without passing `raw`, it should know it's supposed to return a `Response` object, but it doesn't.
+        // https://github.com/nextauthjs/next-auth/blob/a67cfed64d96da1ecfc75f02e7106d9a403012be/packages/core/src/index.ts#L61-L69
+        const res = (await Auth(req.request, auth)) as Response;
         const cookie = res.headers.get('set-cookie');
         if (cookie) {
           req.headers.set('set-cookie', cookie);
@@ -104,7 +113,12 @@ export function serverAuthQrl(authOptions: QRL<(ev: RequestEventCommon) => QwikA
         }
         throw req.send(res);
       } else {
-        req.sharedMap.set('session', await getSessionData(req.request, auth));
+        const { data, cookie } = await getSessionData(req.request, auth);
+        req.sharedMap.set('session', data);
+        if (cookie) {
+          req.headers.set('set-cookie', cookie);
+          fixCookies(req);
+        }
       }
     }
   };
@@ -131,13 +145,28 @@ async function authAction(
     body: body,
   });
   request.headers.set('content-type', 'application/x-www-form-urlencoded');
-  const res = await Auth(request, {
+  // Casting to `Response` because, something is off with the types in `@auth/core` here:
+  // Without passing `raw`, it should know it's supposed to return a `Response` object, but it doesn't.
+  // https://github.com/nextauthjs/next-auth/blob/a67cfed64d96da1ecfc75f02e7106d9a403012be/packages/core/src/index.ts#L61-L69
+  const res = (await Auth(request, {
     ...authOptions,
     skipCSRFCheck,
-  });
+  })) as Response;
+
+  const cookies: string[] = [];
   res.headers.forEach((value, key) => {
-    req.headers.set(key, value);
+    if (key === 'set-cookie') {
+      // while browsers would support setting multiple cookies, the fetch implementation does not, so we join them later.
+      cookies.push(value);
+    } else if (!req.headers.has(key)) {
+      req.headers.set(key, value);
+    }
   });
+
+  if (cookies.length > 0) {
+    req.headers.set('set-cookie', cookies.join(', '));
+  }
+
   fixCookies(req);
 
   try {
@@ -166,23 +195,39 @@ export const ensureAuthMiddleware = (req: RequestEvent) => {
   }
 };
 
-const getCurrentPageForAction = (req: RequestEventCommon) => req.url.href.split('q-')[0];
+const defaultCallbackURL = (req: RequestEventCommon) => {
+  req.url.searchParams.delete('qaction');
+  return req.url.href;
+};
 
 async function getSessionData(req: Request, options: AuthConfig): GetSessionResult {
   options.secret ??= process.env.AUTH_SECRET;
   options.trustHost ??= true;
 
   const url = new URL('/api/auth/session', req.url);
-  const response = await Auth(new Request(url, { headers: req.headers }), options);
+  // Casting to `Response` because, something is off with the types in `@auth/core` here:
+  // Without passing `raw`, it should know it's supposed to return a `Response` object, but it doesn't.
+  // https://github.com/nextauthjs/next-auth/blob/a67cfed64d96da1ecfc75f02e7106d9a403012be/packages/core/src/index.ts#L61-L69
+  const response = (await Auth(new Request(url, { headers: req.headers }), options)) as Response;
 
   const { status = 200 } = response;
 
   const data = await response.json();
+  const cookie = response.headers.get('set-cookie');
   if (!data || !Object.keys(data).length) {
-    return null;
+    return { data: null, cookie };
   }
   if (status === 200) {
-    return data;
+    return { data, cookie };
   }
+
   throw new Error(data.message);
 }
+
+const patchAuthOptions = async (
+  authOptions: QRL<(ev: RequestEventCommon) => QwikAuthConfig>,
+  req: RequestEventCommon
+) => {
+  const options = await authOptions(req);
+  return { ...options, basePath: '/api/auth' };
+};

@@ -35,7 +35,7 @@ export async function getSystem() {
   }
 
   if (globalThis.IS_CJS) {
-    if (sysEnv === 'node') {
+    if (sysEnv === 'node' || sysEnv === 'bun') {
       // using this api object as a way to ensure bundlers
       // do not try to inline or rewrite require()
       sys.dynamicImport = (path) => require(path);
@@ -62,7 +62,7 @@ export async function getSystem() {
     }
   }
 
-  if (sysEnv === 'node') {
+  if (sysEnv === 'node' || sysEnv === 'bun') {
     sys.path = await sys.dynamicImport('node:path');
     sys.cwd = () => process.cwd();
     sys.os = process.platform;
@@ -135,7 +135,7 @@ export async function loadPlatformBinding(sys: OptimizerSystem) {
   const sysEnv = getEnv();
 
   // Try native build
-  if (sysEnv === 'node') {
+  if (sysEnv === 'node' || sysEnv === 'bun') {
     // Node.js
     const platform = (QWIK_BINDING_MAP as any)[process.platform];
     if (platform) {
@@ -154,7 +154,10 @@ export async function loadPlatformBinding(sys: OptimizerSystem) {
             const mod = await sys.dynamicImport(`./bindings/${triple.platformArchABI}`);
             return mod;
           } catch (e) {
-            console.warn(e);
+            console.warn(
+              `Unable to load native binding ${triple.platformArchABI}. Falling back to wasm build.`,
+              (e as Error)?.message
+            );
           }
         }
       }
@@ -164,7 +167,7 @@ export async function loadPlatformBinding(sys: OptimizerSystem) {
   if (globalThis.IS_CJS) {
     // CJS WASM
 
-    if (sysEnv === 'node') {
+    if (sysEnv === 'node' || sysEnv === 'bun') {
       // CJS WASM Node.js
       const wasmPath = sys.path.join(__dirname, 'bindings', 'qwik_wasm_bg.wasm');
       const mod = await sys.dynamicImport(`./bindings/qwik.wasm.cjs`);
@@ -225,7 +228,7 @@ export async function loadPlatformBinding(sys: OptimizerSystem) {
   }
 
   if (globalThis.IS_ESM) {
-    if (sysEnv === 'node') {
+    if (sysEnv === 'node' || sysEnv === 'bun') {
       // CJS WASM Node.js
       const url: typeof import('url') = await sys.dynamicImport('node:url');
       const __dirname = sys.path.dirname(url.fileURLToPath(import.meta.url));
@@ -263,6 +266,10 @@ export interface PlatformBinding {
 const getEnv = (): SystemEnvironment => {
   if (typeof Deno !== 'undefined') {
     return 'deno';
+  }
+
+  if (typeof Bun !== 'undefined') {
+    return 'bun';
   }
 
   if (
@@ -310,3 +317,4 @@ const extensions: { [ext: string]: boolean } = {
 declare const globalThis: { IS_CJS: boolean; IS_ESM: boolean; [key: string]: any };
 declare const WorkerGlobalScope: any;
 declare const Deno: any;
+declare const Bun: any;

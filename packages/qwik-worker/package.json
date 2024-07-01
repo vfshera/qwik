@@ -1,42 +1,40 @@
 {
   "name": "@builder.io/qwik-worker",
-  "version": "0.0.1",
   "description": "Qwik Worker allows to use Web Worker with worker$. Experimental.",
-  "scripts": {
-    "build": "vite build --mode lib"
-  },
+  "version": "0.0.1",
+  "bugs": "https://github.com/QwikDev/qwik/issues",
   "devDependencies": {
-    "@builder.io/qwik": "workspace:*",
-    "vite": "4.4.0",
-    "vite-plugin-static-copy": "^0.16.0"
-  },
-  "peerDependencies": {
-    "@builder.io/qwik": ">=0.107.0"
+    "@builder.io/qwik": "workspace:^",
+    "vite": "^5.2.10",
+    "vite-plugin-static-copy": "^1.0.3"
   },
   "engines": {
     "node": ">=16.8.0 <18.0.0 || >=18.11"
   },
   "exports": {
     ".": {
-      "import": "./lib/index.qwik.mjs",
-      "types": "./lib/types/index.d.ts"
+      "types": "./lib/types/index.d.ts",
+      "import": "./lib/index.qwik.mjs"
     }
   },
   "files": [
     "lib"
   ],
+  "homepage": "https://qwik.dev/",
   "license": "MIT",
-  "homepage": "https://qwik.builder.io/",
+  "main": "./lib/index.qwik.mjs",
+  "peerDependencies": {
+    "@builder.io/qwik": "workspace:^"
+  },
+  "qwik": "./lib/index.qwik.mjs",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BuilderIO/qwik.git",
+    "url": "https://github.com/QwikDev/qwik.git",
     "directory": "packages/qwik-worker"
   },
-  "bugs": {
-    "url": "https://github.com/BuilderIO/qwik/issues"
+  "scripts": {
+    "build": "vite build --mode lib"
   },
   "type": "module",
-  "qwik": "./lib/index.qwik.mjs",
-  "main": "./lib/index.qwik.mjs",
   "types": "./lib/types/index.d.ts"
 }

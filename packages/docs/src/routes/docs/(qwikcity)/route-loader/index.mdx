@@ -9,6 +9,13 @@ contributors:
   - hamatoyogi
   - steve8708
   - iamyuu
+  - n8sabes
+  - mrhoodz
+  - mjschwanitz
+  - adamdbradley
+  - gioboa
+updated_at: '2023-12-15T11:00:00Z'
+created_at: '2023-03-20T23:45:13Z'
 ---
 
 # `routeLoader$()`
@@ -16,6 +23,8 @@ contributors:
 Route Loaders load data in the server so it becomes available to use inside Qwik Components. They trigger when SPA/MPA navigation happens so they can be invoked by Qwik Components during rendering.
 
 Route Loaders can only be declared inside the `src/routes` folder, in a `layout.tsx` or `index.tsx` file, and they MUST be exported.
+
+> If you want to manage common reusable routeLoaders$ it is essential that this function is re-exported from within 'layout.tsx' or 'index.tsx file of the existing route otherwise it will not run or throw exception. For more information [check the cookbook](/docs/cookbook/re-exporting-loaders/index.mdx).
 
 ```tsx /routeLoader$/ /useProductData/#a title="src/routes/product/[productId]/index.tsx"
 import { component$ } from '@builder.io/qwik';
@@ -37,7 +46,7 @@ export default component$(() => {
 
 Route Loaders are perfect to fetch data from a database or an API. For example you can use them to fetch data from a CMS, a weather API, or a list of users from your database.
 
-> You should not use a `routeLoader$` to create a REST API, for that you’d be better off using an [Endpoint](/docs/(qwikcity)/middleware/index.mdx), which allows you to have tight control over the response headers and body.
+> You should not use a `routeLoader$` to create a REST API, for that you’d be better off using an [Endpoint](/docs/endpoints/), which allows you to have tight control over the response headers and body.
 
 ## Multiple `routeLoader$`s
 
@@ -117,7 +126,7 @@ The above example shows two `routeLoader$`s being used in the same file. A gener
 
 ## RequestEvent
 
-Just like [middleware](/docs/middleware/) or [endpoint](/docs/endpoint) `onRequest` and `onGet`, `routeLoader$`s have access to the [`RequestEvent`](/docs/middleware#requestevent) API which includes information about the current HTTP request.
+Just like [middleware](/docs/middleware/) or [endpoint](/docs/endpoints/) `onRequest` and `onGet`, `routeLoader$`s have access to the [`RequestEvent`](/docs/middleware#requestevent) API which includes information about the current HTTP request.
 
 This information comes in handy when the loader needs to conditionally return data based on the request, or it needs to override the response status, headers or body manually.
 
@@ -202,6 +211,27 @@ export default component$(() => {
 });
 ```
 
+## Handling Relative URLs in Loaders
+
+In the server-side execution environment, it's crucial to convert relative URLs to absolute URLs for proper functionality. This can be achieved by prefixing the relative URL with the `origin` from the `useLocation()` function.
+
+```tsx /location.url.origin + relativeUrl/ title="Make Absolute URL"
+import { component$ } from '@builder.io/qwik';
+import { useLocation } from '@builder.io/qwik-city';
+
+export default component$(() => {
+  const location = useLocation();
+  const relativeUrl = '/mock-data';
+  const absoluteUrl = location.url.origin + relativeUrl;
+
+  return (
+    <section>
+      <div>Relative URL: {relativeUrl}</div>
+      <div>Absolute URL: {absoluteUrl}</div>
+    </section>
+  );
+});
+```
 
 ## Performance considerations
 

@@ -16,9 +16,7 @@ import { setServerPlatform } from '@builder.io/qwik/server';
 // @builder.io/qwik-city/middleware/netlify-edge
 
 declare const Deno: any;
-/**
- * @public
- */
+/** @public */
 export function createQwikCity(opts: QwikCityNetlifyOptions) {
   const qwikSerializer = {
     _deserializeData,
@@ -77,7 +75,13 @@ export function createQwikCity(opts: QwikCityNetlifyOptions) {
 
       // qwik city did not have a route for this request
       // response with 404 for this pathname
-      const notFoundHtml = getNotFound(url.pathname);
+
+      // In the development server, we replace the getNotFound function
+      // For static paths, we assign a static "Not Found" message.
+      // This ensures consistency between development and production environments for specific URLs.
+      const notFoundHtml = isStaticPath(request.method || 'GET', url)
+        ? 'Not Found'
+        : getNotFound(url.pathname);
       return new Response(notFoundHtml, {
         status: 404,
         headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Not-Found': url.pathname },
@@ -94,12 +98,8 @@ export function createQwikCity(opts: QwikCityNetlifyOptions) {
   return onNetlifyEdgeRequest;
 }
 
-/**
- * @public
- */
+/** @public */
 export interface QwikCityNetlifyOptions extends ServerRenderOptions {}
 
-/**
- * @public
- */
+/** @public */
 export interface PlatformNetlify extends Partial<Omit<Context, 'next' | 'cookies'>> {}

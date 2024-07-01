@@ -1,7 +1,12 @@
+/**
+ * @file This file is used as examples in https://qwik.dev/docs/advanced/eslint/
+ *
+ *   Call `pnpm eslint.update` to update the examples in the docs.
+ */
 import { jsxImgExamples } from './src/jsxImg';
 import { jsxKeyExamples } from './src/jsxKey';
 import { jsxNoScriptUrlExamples } from './src/jsxNoScriptUrl';
-import { loaderLocation, loaderLocationExamples } from './src/loaderLocation';
+import { loaderLocationExamples } from './src/loaderLocation';
 import { noReactPropsExamples } from './src/noReactProps';
 import { preferClasslistExamples } from './src/preferClasslist';
 import { unusedServerExamples } from './src/unusedServer';

@@ -1,9 +1,10 @@
+import type { CompileOptions } from '@mdx-js/mdx';
 import type { MdxTransform } from '../markdown/mdx';
 import type { BuildContext, BuildEntry, BuildRoute, PluginOptions, MdxPlugins } from '../types';
+import type { Config as SVGOConfig } from 'svgo';
+import type { BuiltinsWithOptionalParams as SVGOBuiltinPluginsWithOptionalParams } from 'svgo/plugins/plugins-types';
 
-/**
- * @public
- */
+/** @public */
 export interface ImageOptimizationOptions {
   jsxDirectives?: {
     quality?: `${number}`;
@@ -12,12 +13,14 @@ export interface ImageOptimizationOptions {
     h?: string;
     [key: string]: string | undefined;
   };
+  svgo?: Pick<SVGOConfig, 'floatPrecision' | 'multipass' | 'plugins'> & {
+    defaultPresetOverrides?: SVGOBuiltinPluginsWithOptionalParams['preset-default']['overrides'];
+    prefixIds?: SVGOBuiltinPluginsWithOptionalParams['prefixIds'] | false;
+  };
   enabled?: boolean | 'only-production';
 }
 
-/**
- * @public
- */
+/** @public */
 export interface QwikCityVitePluginOptions extends Omit<PluginOptions, 'basePathname'> {
   mdxPlugins?: MdxPlugins;
   mdx?: MdxOptions;
@@ -25,10 +28,9 @@ export interface QwikCityVitePluginOptions extends Omit<PluginOptions, 'basePath
   imageOptimization?: ImageOptimizationOptions;
 }
 
-/**
- * @public
- */
-export type MdxOptions = import('@mdx-js/mdx/lib/compile').CompileOptions;
+/** @public */
+
+export type MdxOptions = CompileOptions;
 
 export interface PluginContext {
   buildCtx: BuildContext | null;
@@ -37,17 +39,13 @@ export interface PluginContext {
   mdxTransform: MdxTransform | null;
 }
 
-/**
- * @public
- */
+/** @public */
 export interface QwikCityPlugin {
   name: 'vite-plugin-qwik-city';
   api: QwikCityPluginApi;
 }
 
-/**
- * @public
- */
+/** @public */
 export interface QwikCityPluginApi {
   getBasePathname: () => string;
   getRoutes: () => BuildRoute[];

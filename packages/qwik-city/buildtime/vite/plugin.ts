@@ -1,3 +1,4 @@
+import swRegister from '@qwik-city-sw-register-build';
 import { createMdxTransformer, type MdxTransform } from '../markdown/mdx';
 import { basename, join, resolve, extname } from 'node:path';
 import type { Plugin, PluginOption, UserConfig, Rollup } from 'vite';
@@ -28,9 +29,7 @@ import {
 import { postBuild } from '../../adapters/shared/vite/post-build';
 import { imagePlugin } from './image-jsx';
 
-/**
- * @public
- */
+/** @public */
 export function qwikCity(userOpts?: QwikCityVitePluginOptions): PluginOption[] {
   return [qwikCityPlugin(userOpts), ...imagePlugin(userOpts)];
 }
@@ -46,7 +45,7 @@ function qwikCityPlugin(userOpts?: QwikCityVitePluginOptions): any {
   // Patch Stream APIs
   patchGlobalThis();
 
-  (globalThis as any).__qwikCityNew = true;
+  globalThis.__qwikCityNew = true;
 
   const api: QwikCityPluginApi = {
     getBasePathname: () => ctx?.opts.basePathname ?? '/',
@@ -70,6 +69,7 @@ function qwikCityPlugin(userOpts?: QwikCityVitePluginOptions): any {
           exclude: [QWIK_CITY, QWIK_CITY_PLAN_ID, QWIK_CITY_ENTRIES_ID, QWIK_CITY_SW_REGISTER],
         },
         ssr: {
+          external: ['node:async_hooks'],
           noExternal: [QWIK_CITY, QWIK_CITY_PLAN_ID, QWIK_CITY_ENTRIES_ID, QWIK_CITY_SW_REGISTER],
         },
       };
@@ -96,6 +96,7 @@ function qwikCityPlugin(userOpts?: QwikCityVitePluginOptions): any {
         throw new Error('Missing vite-plugin-qwik');
       }
 
+      // @ts-ignore `format` removed in Vite 5
       if (config.ssr?.format === 'cjs') {
         ssrFormat = 'cjs';
       }
@@ -179,7 +180,7 @@ function qwikCityPlugin(userOpts?: QwikCityVitePluginOptions): any {
 
           if (isSwRegister) {
             // @qwik-city-sw-register
-            return generateServiceWorkerRegister(ctx);
+            return generateServiceWorkerRegister(ctx, swRegister);
           }
         }
       }
@@ -256,7 +257,7 @@ function qwikCityPlugin(userOpts?: QwikCityVitePluginOptions): any {
     closeBundle: {
       sequential: true,
       async handler() {
-        if (ctx?.target === 'ssr') {
+        if (ctx?.target === 'ssr' && !ctx?.isDevServer) {
           // ssr build
           const manifest = qwikPlugin!.api.getManifest();
           const clientOutDir = qwikPlugin!.api.getClientOutDir();
@@ -264,13 +265,19 @@ function qwikCityPlugin(userOpts?: QwikCityVitePluginOptions): any {
           if (manifest && clientOutDir) {
             const basePathRelDir = api.getBasePathname().replace(/^\/|\/$/, '');
             const clientOutBaseDir = join(clientOutDir, basePathRelDir);
+            const insightsManifest = await qwikPlugin!.api.getInsightsManifest(clientOutDir);
 
             for (const swEntry of ctx.serviceWorkers) {
               try {
                 const swClientDistPath = join(clientOutBaseDir, swEntry.chunkFileName);
                 const swCode = await fs.promises.readFile(swClientDistPath, 'utf-8');
                 try {
-                  const swCodeUpdate = prependManifestToServiceWorker(ctx, manifest, swCode);
+                  const swCodeUpdate = prependManifestToServiceWorker(
+                    ctx,
+                    manifest,
+                    insightsManifest?.prefetch || null,
+                    swCode
+                  );
                   if (swCodeUpdate) {
                     await fs.promises.mkdir(clientOutDir, { recursive: true });
                     await fs.promises.writeFile(swClientDistPath, swCodeUpdate);
@@ -285,9 +292,10 @@ function qwikCityPlugin(userOpts?: QwikCityVitePluginOptions): any {
           }
 
           if (outDir && clientOutDir) {
+            const assetsDir = qwikPlugin!.api.getAssetsDir();
             const { staticPathsCode, notFoundPathsCode } = await postBuild(
               clientOutDir,
-              api.getBasePathname(),
+              assetsDir ? join(api.getBasePathname(), assetsDir) : api.getBasePathname(),
               [],
               ssrFormat,
               false

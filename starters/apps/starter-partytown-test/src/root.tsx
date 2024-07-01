@@ -7,7 +7,7 @@ export default () => {
   return (
     <>
       <head>
-        <meta charSet="utf-8" />
+        <meta charset="utf-8" />
         <title>Qwik + Partytown Blank App</title>
         <script dangerouslySetInnerHTML={partytownSnippet({ debug: true })} />
       </head>
@@ -34,6 +34,6 @@ function partyTownExampleWhichBlocksMainThreadForOneSecond() {
   // eslint-disable-next-line no-console
   console.log("Expensive computation ended at:", end);
   document.dispatchEvent(
-    new Event("expensiveComputationDone", { bubbles: true })
+    new Event("expensiveComputationDone", { bubbles: true }),
   );
 }

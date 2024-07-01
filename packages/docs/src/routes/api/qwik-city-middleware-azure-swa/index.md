@@ -8,19 +8,40 @@ title: \@builder.io/qwik-city/middleware/azure-swa API Reference
 
 ```typescript
 export declare function createQwikCity(
-  opts: QwikCityAzureOptions
+  opts: QwikCityAzureOptions,
 ): AzureFunction;
 ```
 
-| Parameter | Type                                          | Description |
-| --------- | --------------------------------------------- | ----------- |
-| opts      | [QwikCityAzureOptions](#qwikcityazureoptions) |             |
+<table><thead><tr><th>
 
+Parameter
+
+</th><th>
+
+Type
+
+</th><th>
+
+Description
+
+</th></tr></thead>
+<tbody><tr><td>
+
+opts
+
+</td><td>
+
+[QwikCityAzureOptions](#qwikcityazureoptions)
+
+</td><td>
+
+</td></tr>
+</tbody></table>
 **Returns:**
 
 AzureFunction
 
-[Edit this section](https://github.com/BuilderIO/qwik/tree/main/packages/qwik-city/middleware/azure-swa/index.ts)
+[Edit this section](https://github.com/QwikDev/qwik/tree/main/packages/qwik-city/middleware/azure-swa/index.ts)
 
 ## PlatformAzure
 
@@ -30,7 +51,7 @@ export interface PlatformAzure extends Partial<Context>
 
 **Extends:** Partial&lt;Context&gt;
 
-[Edit this section](https://github.com/BuilderIO/qwik/tree/main/packages/qwik-city/middleware/azure-swa/index.ts)
+[Edit this section](https://github.com/QwikDev/qwik/tree/main/packages/qwik-city/middleware/azure-swa/index.ts)
 
 ## QwikCityAzureOptions
 
@@ -40,4 +61,4 @@ export interface QwikCityAzureOptions extends ServerRenderOptions
 
 **Extends:** ServerRenderOptions
 
-[Edit this section](https://github.com/BuilderIO/qwik/tree/main/packages/qwik-city/middleware/azure-swa/index.ts)
+[Edit this section](https://github.com/QwikDev/qwik/tree/main/packages/qwik-city/middleware/azure-swa/index.ts)

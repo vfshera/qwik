@@ -49,7 +49,7 @@ export const Weather = component$(() => {
       cleanup(() => controller.abort());
       const value = await fetchWeather(city, controller.signal);
       return value;
-    }
+    },
   );
 
   return (
@@ -60,7 +60,7 @@ export const Weather = component$(() => {
         name="city"
         autoComplete="off"
         placeholder="City name"
-        onInput$={(ev) => (state.city = (ev.target as any).value)}
+        onInput$={(ev, el) => (state.city = el.value)}
       />
       <WeatherResults2 weather={weather} />
     </div>
@@ -90,7 +90,7 @@ export const WeatherResults = component$(
         />
       </div>
     );
-  }
+  },
 );
 
 export const WeatherResults2 = component$(
@@ -101,7 +101,7 @@ export const WeatherResults2 = component$(
         <Resource
           value={props.weather}
           onPending={() => <div>loading data...</div>}
-          onRejected={(reason) => <div>error {reason}</div>}
+          onRejected={(reason) => <div>error {`${reason}`}</div>}
           onResolved={(weather) => {
             if (!weather) {
               return <div>Please write some city</div>;
@@ -121,12 +121,12 @@ export const WeatherResults2 = component$(
         />
       </div>
     );
-  }
+  },
 );
 
 export async function fetchWeather(
   city: string,
-  signal: AbortSignal
+  signal: AbortSignal,
 ): Promise<WeatherData> {
   const url = new URL("https://api.openweathermap.org/data/2.5/weather");
   url.searchParams.set("q", city);

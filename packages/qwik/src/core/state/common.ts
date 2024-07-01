@@ -13,7 +13,7 @@ import {
 } from '../use/use-task';
 import type { QwikElement } from '../render/dom/virtual-element';
 import { notifyChange } from '../render/dom/notify-render';
-import { createError, logError } from '../util/log';
+import { logError, throwErrorAndStop } from '../util/log';
 import { tryGetContext } from './context';
 import { QObjectFlagsSymbol, QObjectManagerSymbol, QOjectTargetSymbol } from './constants';
 import type { Signal } from './signal';
@@ -21,17 +21,15 @@ import type { Signal } from './signal';
 export interface SubscriptionManager {
   $groupToManagers$: GroupToManagersMap;
   $createManager$(map?: Subscriptions[]): LocalSubscriptionManager;
-  $clearSub$: (sub: SubscriberEffect | SubscriberHost | Node) => void;
-  $clearSignal$: (sub: SubscriberSignal) => void;
+  $clearSub$: (group: Group) => void;
+  $clearSignal$: (signal: SubscriberSignal) => void;
 }
 
 export type QObject<T extends {}> = T & { __brand__: 'QObject' };
 
 export type TargetType = Record<string | symbol, any>;
 
-/**
- * @internal
- */
+/** @internal */
 export const verifySerializable = <T>(value: T, preMessage?: string): T => {
   const seen = new Set();
   return _verifySerializable(value, seen, '_', preMessage);
@@ -93,41 +91,41 @@ const _verifySerializable = <T>(value: T, seen: Set<any>, ctx: string, preMessag
       message += ` in ${ctx},`;
     }
     if (typeObj === 'object') {
-      message += ` because it's an instance of "${value?.constructor.name}". You might need to use 'noSerialize()' or use an object literal instead. Check out https://qwik.builder.io/docs/advanced/dollar/`;
+      message += ` because it's an instance of "${value?.constructor.name}". You might need to use 'noSerialize()' or use an object literal instead. Check out https://qwik.dev/docs/advanced/dollar/`;
     } else if (typeObj === 'function') {
       const fnName = (value as Function).name;
       message += ` because it's a function named "${fnName}". You might need to convert it to a QRL using $(fn):\n\nconst ${fnName} = $(${String(
         value
-      )});\n\nPlease check out https://qwik.builder.io/docs/advanced/qrl/ for more information.`;
+      )});\n\nPlease check out https://qwik.dev/docs/advanced/qrl/ for more information.`;
     }
     console.error('Trying to serialize', value);
-    throw createError(message);
+    throwErrorAndStop(message);
   }
   return value;
 };
-const noSerializeSet = /*#__PURE__*/ new WeakSet<any>();
-const weakSerializeSet = /*#__PURE__*/ new WeakSet<any>();
+const noSerializeSet = /*#__PURE__*/ new WeakSet<object>();
+const weakSerializeSet = /*#__PURE__*/ new WeakSet<object>();
 
-export const shouldSerialize = (obj: any): boolean => {
+export const shouldSerialize = (obj: unknown): boolean => {
   if (isObject(obj) || isFunction(obj)) {
     return !noSerializeSet.has(obj);
   }
   return true;
 };
 
-export const fastSkipSerialize = (obj: any): boolean => {
+export const fastSkipSerialize = (obj: object): boolean => {
   return noSerializeSet.has(obj);
 };
 
-export const fastWeakSerialize = (obj: any): boolean => {
+export const fastWeakSerialize = (obj: object): boolean => {
   return weakSerializeSet.has(obj);
 };
 
 /**
  * Returned type of the `noSerialize()` function. It will be TYPE or undefined.
  *
- * @see noSerialize
  * @public
+ * @see noSerialize
  */
 export type NoSerialize<T> = (T & { __no_serialize__: true }) | undefined;
 
@@ -137,16 +135,16 @@ export type NoSerialize<T> = (T & { __no_serialize__: true }) | undefined;
 /**
  * Marks a property on a store as non-serializable.
  *
- * At times it is necessary to store values on a store that are non-serializable. Normally this
- * is a runtime error as Store wants to eagerly report when a non-serializable property is
- * assigned to it.
+ * At times it is necessary to store values on a store that are non-serializable. Normally this is a
+ * runtime error as Store wants to eagerly report when a non-serializable property is assigned to
+ * it.
  *
  * You can use `noSerialize()` to mark a value as non-serializable. The value is persisted in the
  * Store but does not survive serialization. The implication is that when your application is
  * resumed, the value of this object will be `undefined`. You will be responsible for recovering
  * from this.
  *
- * See: [noSerialize Tutorial](http://qwik.builder.io/tutorial/store/no-serialize)
+ * See: [noSerialize Tutorial](http://qwik.dev/tutorial/store/no-serialize)
  *
  * @public
  */
@@ -158,10 +156,8 @@ export const noSerialize = <T extends object | undefined>(input: T): NoSerialize
   return input as any;
 };
 
-/**
- * @internal
- */
-export const _weakSerialize = <T extends Record<string, any>>(input: T): Partial<T> => {
+/** @internal */
+export const _weakSerialize = <T extends object>(input: T): Partial<T> => {
   weakSerializeSet.add(input);
   return input as any;
 };
@@ -174,24 +170,20 @@ export const isConnected = (sub: SubscriberEffect | SubscriberHost): boolean => 
   }
 };
 
-/**
- * @public
- */
+/** @public */
 export const unwrapProxy = <T>(proxy: T): T => {
   return isObject(proxy) ? getProxyTarget<any>(proxy) ?? proxy : proxy;
 };
 
-export const getProxyTarget = <T extends Record<string, any>>(obj: T): T | undefined => {
+export const getProxyTarget = <T extends object>(obj: T): T | undefined => {
   return (obj as any)[QOjectTargetSymbol];
 };
 
-export const getSubscriptionManager = (
-  obj: Record<string, any>
-): LocalSubscriptionManager | undefined => {
+export const getSubscriptionManager = (obj: object): LocalSubscriptionManager | undefined => {
   return (obj as any)[QObjectManagerSymbol];
 };
 
-export const getProxyFlags = <T = Record<string, any>>(obj: T): number | undefined => {
+export const getProxyFlags = <T = object>(obj: T): number | undefined => {
   return (obj as any)[QObjectFlagsSymbol];
 };
 
@@ -202,14 +194,14 @@ type SubscriberB = readonly [
   host: SubscriberHost,
   signal: Signal,
   elm: QwikElement,
-  prop: string
+  prop: string,
 ];
 
-type SubscriberC = readonly [
+export type SubscriberC = readonly [
   type: 3 | 4,
   host: SubscriberHost | Text,
   signal: Signal,
-  elm: Node | string | QwikElement
+  elm: Node | string | QwikElement,
 ];
 
 export type Subscriber = SubscriberA | SubscriberB | SubscriberC;
@@ -221,24 +213,23 @@ type B = [
   signal: Signal,
   elm: QwikElement,
   prop: string,
-  key: string | undefined
+  key: string | undefined,
 ];
 type C = [
   type: 3 | 4,
   host: SubscriberHost | Text,
   signal: Signal,
   elm: Node | QwikElement,
-  key: string | undefined
+  key: string | undefined,
 ];
 
 export type SubscriberSignal = B | C;
 
 export type Subscriptions = A | SubscriberSignal;
 
-export type GroupToManagersMap = Map<
-  SubscriberHost | SubscriberEffect | Node,
-  LocalSubscriptionManager[]
->;
+type Group = SubscriberEffect | SubscriberHost | Node;
+
+export type GroupToManagersMap = Map<Group, LocalSubscriptionManager[]>;
 
 export const serializeSubscription = (sub: Subscriptions, getObjId: GetObjID) => {
   const type = sub[0];
@@ -311,7 +302,7 @@ export const createSubscriptionManager = (containerState: ContainerState): Subsc
     $createManager$: (initialMap?: Subscriptions[]) => {
       return new LocalSubscriptionManager(groupToManagers, containerState, initialMap);
     },
-    $clearSub$: (group: SubscriberHost | SubscriberEffect | Node) => {
+    $clearSub$: (group: Group) => {
       const managers = groupToManagers.get(group);
       if (managers) {
         for (const manager of managers) {
@@ -357,7 +348,7 @@ export class LocalSubscriptionManager {
     }
   }
 
-  $addToGroup$(group: SubscriberHost | SubscriberEffect | Node, manager: LocalSubscriptionManager) {
+  $addToGroup$(group: Group, manager: LocalSubscriptionManager) {
     let managers = this.$groupToManagers$.get(group);
     if (!managers) {
       this.$groupToManagers$.set(group, (managers = []));
@@ -367,7 +358,7 @@ export class LocalSubscriptionManager {
     }
   }
 
-  $unsubGroup$(group: SubscriberEffect | SubscriberHost | Node) {
+  $unsubGroup$(group: Group) {
     const subs = this.$subs$;
     for (let i = 0; i < subs.length; i++) {
       const found = subs[i][1] === group;
@@ -417,7 +408,7 @@ export class LocalSubscriptionManager {
     ) {
       return;
     }
-    subs.push([...sub, key] as any);
+    subs.push((__lastSubscription = [...sub, key] as any));
     this.$addToGroup$(group, this);
   }
 
@@ -431,6 +422,15 @@ export class LocalSubscriptionManager {
       notifyChange(sub, this.$containerState$);
     }
   }
+}
+
+let __lastSubscription: Subscriptions | undefined;
+
+export function getLastSubscription(): Subscriptions | undefined {
+  // HACK(misko): This is a hack to get the last subscription.
+  // It is used by `executeSignalOperation` to update the target element
+  // after the subscription has been created.
+  return __lastSubscription;
 }
 
 const must = <T>(a: T): NonNullable<T> => {

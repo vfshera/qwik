@@ -11,6 +11,8 @@ import { POSSIBLE_TYPES } from './utils';
 
 const SLUG_KEY = '[slug]';
 const NAME_KEY = '[name]';
+const MARKDOWN_SUFFIX = '.md';
+const MDX_SUFFIX = '.mdx';
 
 export async function runNewCommand(app: AppCommand) {
   try {
@@ -26,16 +28,25 @@ export async function runNewCommand(app: AppCommand) {
     const args = app.args.filter((a) => !a.startsWith('--'));
 
     const mainInput = args.slice(1).join(' ');
-    let typeArg: 'route' | 'component' | undefined = undefined;
+    let typeArg: 'route' | 'component' | 'markdown' | 'mdx' | undefined = undefined;
     let nameArg: string | undefined;
     let outDir: string | undefined;
     if (mainInput && mainInput.startsWith('/')) {
-      typeArg = 'route';
-      nameArg = mainInput;
+      if (mainInput.endsWith(MARKDOWN_SUFFIX)) {
+        typeArg = 'markdown';
+        nameArg = mainInput.replace(MARKDOWN_SUFFIX, '');
+      } else if (mainInput.endsWith(MDX_SUFFIX)) {
+        typeArg = 'mdx';
+        nameArg = mainInput.replace(MDX_SUFFIX, '');
+      } else {
+        typeArg = 'route';
+        nameArg = mainInput;
+      }
     } else if (mainInput) {
       typeArg = 'component';
       nameArg = mainInput;
     }
+
     let templateArg = app.args
       .filter((a) => a.startsWith('--'))
       .map((a) => a.substring(2))
@@ -76,7 +87,7 @@ export async function runNewCommand(app: AppCommand) {
       template = templates[0][typeArg][0];
     }
 
-    if (typeArg === 'route') {
+    if (typeArg === 'route' || typeArg === 'markdown' || typeArg === 'mdx') {
       outDir = join(app.rootDir, 'src', `routes`, nameArg);
     } else {
       outDir = join(app.rootDir, 'src', `components`, nameArg);
@@ -84,7 +95,7 @@ export async function runNewCommand(app: AppCommand) {
 
     const fileOutput = await writeToFile(name, slug, template, outDir);
 
-    log.success(`${green(`${toPascal([typeArg])} "${name}" created!`)}`);
+    log.success(`${green(`${toPascal([typeArg])} "${slug}" created!`)}`);
     log.message(`Emitted in ${dim(fileOutput)}`);
   } catch (e) {
     log.error(String(e));
@@ -99,6 +110,8 @@ async function selectType() {
     options: [
       { value: 'component', label: 'Component' },
       { value: 'route', label: 'Route' },
+      { value: 'markdown', label: 'Route (Markdown)' },
+      { value: 'mdx', label: 'Route (MDX)' },
     ],
   });
 
@@ -109,9 +122,23 @@ async function selectType() {
   return typeAnswer as (typeof POSSIBLE_TYPES)[number];
 }
 
-async function selectName(type: 'route' | 'component') {
-  const message = type === 'route' ? 'New route path' : 'Name your component';
-  const placeholder = type === 'route' ? '/product/[id]' : 'my-component';
+async function selectName(type: 'route' | 'component' | 'markdown' | 'mdx') {
+  const messages = {
+    route: 'New route path',
+    markdown: 'New Markdown route path',
+    mdx: 'New MDX route path',
+    component: 'Name your component',
+  };
+  const message = messages[type];
+
+  const placeholders = {
+    route: '/product/[id]',
+    markdown: '/some/page' + MARKDOWN_SUFFIX,
+    mdx: '/some/page' + MDX_SUFFIX,
+    component: 'my-component',
+  };
+  const placeholder = placeholders[type];
+
   const nameAnswer = await text({
     message,
     placeholder,
@@ -128,10 +155,20 @@ async function selectName(type: 'route' | 'component') {
   if (typeof nameAnswer !== 'string') {
     bye();
   }
-  if (type === 'route' && !(nameAnswer as string).startsWith('/')) {
-    return `/${nameAnswer as string}`;
+
+  let result = nameAnswer;
+
+  if (type !== 'component' && !nameAnswer.startsWith('/')) {
+    result = `/${result}`;
   }
-  return nameAnswer as string;
+
+  if (type === 'markdown') {
+    result = result.replace(MARKDOWN_SUFFIX, '');
+  } else if (type === 'mdx') {
+    result = result.replace(MDX_SUFFIX, '');
+  }
+
+  return result;
 }
 
 async function selectTemplate(typeArg: (typeof POSSIBLE_TYPES)[number]) {
@@ -212,9 +249,9 @@ function parseInputName(input: string) {
 }
 
 function toSlug(list: string[]) {
-  return list.join('-').toLowerCase();
+  return list.join('-');
 }
 
 function toPascal(list: string[]) {
-  return list.map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase()).join('');
+  return list.map((p) => p[0].toUpperCase() + p.substring(1)).join('');
 }

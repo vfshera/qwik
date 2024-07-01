@@ -1,4 +1,5 @@
 import { MODULE_CACHE } from './constants';
+import { matchRoute } from './route-matcher';
 import type {
   ContentMenu,
   LoadedRoute,
@@ -7,54 +8,54 @@ import type {
   ModuleLoader,
   RouteData,
   RouteModule,
-  PathParams,
 } from './types';
 
 export const CACHE = new Map<RouteData, Promise<any>>();
-/**
- * loadRoute() runs in both client and server.
- */
+/** LoadRoute() runs in both client and server. */
 export const loadRoute = async (
   routes: RouteData[] | undefined,
   menus: MenuData[] | undefined,
   cacheModules: boolean | undefined,
   pathname: string
 ): Promise<LoadedRoute | null> => {
-  if (Array.isArray(routes)) {
-    for (const route of routes) {
-      const match = route[0].exec(pathname);
-      if (match) {
-        const loaders = route[1];
-        const params = getPathParams(route[2], match);
-        const routeBundleNames = route[4];
-        const mods: RouteModule[] = new Array(loaders.length);
-        const pendingLoads: Promise<any>[] = [];
-        const menuLoader = getMenuLoader(menus, pathname);
-        let menu: ContentMenu | undefined = undefined;
-
-        loaders.forEach((moduleLoader, i) => {
-          loadModule<RouteModule>(
-            moduleLoader,
-            pendingLoads,
-            (routeModule) => (mods[i] = routeModule),
-            cacheModules
-          );
-        });
-
-        loadModule<MenuModule>(
-          menuLoader,
-          pendingLoads,
-          (menuModule) => (menu = menuModule?.default),
-          cacheModules
-        );
-
-        if (pendingLoads.length > 0) {
-          await Promise.all(pendingLoads);
-        }
-
-        return [params, mods, menu, routeBundleNames];
-      }
+  if (!Array.isArray(routes)) {
+    return null;
+  }
+  for (const routeData of routes) {
+    const routeName = routeData[0];
+    const params = matchRoute(routeName, pathname);
+    if (!params) {
+      continue;
     }
+    const loaders = routeData[1];
+    const routeBundleNames = routeData[3];
+    const modules: RouteModule[] = new Array(loaders.length);
+    const pendingLoads: Promise<any>[] = [];
+
+    loaders.forEach((moduleLoader, i) => {
+      loadModule<RouteModule>(
+        moduleLoader,
+        pendingLoads,
+        (routeModule) => (modules[i] = routeModule),
+        cacheModules
+      );
+    });
+
+    const menuLoader = getMenuLoader(menus, pathname);
+    let menu: ContentMenu | undefined = undefined;
+
+    loadModule<MenuModule>(
+      menuLoader,
+      pendingLoads,
+      (menuModule) => (menu = menuModule?.default),
+      cacheModules
+    );
+
+    if (pendingLoads.length > 0) {
+      await Promise.all(pendingLoads);
+    }
+
+    return [routeName, params, modules, menu, routeBundleNames];
   }
   return null;
 };
@@ -70,18 +71,18 @@ const loadModule = <T>(
     if (loadedModule) {
       moduleSetter(loadedModule);
     } else {
-      const l: any = moduleLoader();
-      if (typeof l.then === 'function') {
+      const moduleOrPromise: any = moduleLoader();
+      if (typeof moduleOrPromise.then === 'function') {
         pendingLoads.push(
-          l.then((loadedModule: any) => {
+          moduleOrPromise.then((loadedModule: any) => {
             if (cacheModules !== false) {
               MODULE_CACHE.set(moduleLoader, loadedModule);
             }
             moduleSetter(loadedModule);
           })
         );
-      } else if (l) {
-        moduleSetter(l);
+      } else if (moduleOrPromise) {
+        moduleSetter(moduleOrPromise);
       }
     }
   }
@@ -97,17 +98,4 @@ export const getMenuLoader = (menus: MenuData[] | undefined, pathname: string) =
       return menu[1];
     }
   }
-};
-
-export const getPathParams = (paramNames: string[] | undefined, match: RegExpExecArray | null) => {
-  const params: PathParams = {};
-  if (paramNames) {
-    for (let i = 0; i < paramNames.length; i++) {
-      const param = match?.[i + 1] ?? '';
-      const v = param.endsWith('/') ? param.slice(0, -1) : param;
-      // `decodeURIComponent(...)` should not throw here
-      params[paramNames[i]] = decodeURIComponent(v);
-    }
-  }
-  return params;
 };

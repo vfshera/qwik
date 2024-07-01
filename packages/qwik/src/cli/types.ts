@@ -7,6 +7,7 @@ export interface CreateAppOptions {
 
 export interface CreateAppResult extends CreateAppOptions {
   docs: string[];
+  pkgManager: string;
 }
 
 export interface UpdateAppOptions {
@@ -38,6 +39,7 @@ export interface IntegrationData {
   name: string;
   pkgJson: IntegrationPackageJson;
   dir: string;
+  target?: string;
   priority: number;
   docs: string[];
   viteConfig?: ViteConfigUpdates;
@@ -108,4 +110,6 @@ export interface TemplateSet {
   id: string;
   component: Template[];
   route: Template[];
+  markdown: Template[];
+  mdx: Template[];
 }

@@ -18,9 +18,7 @@ import type { Http2ServerRequest } from 'node:http2';
 
 // @builder.io/qwik-city/middleware/node
 
-/**
- * @public
- */
+/** @public */
 export function createQwikCity(opts: QwikCityNodeRequestOptions) {
   // Patch Stream APIs
   patchGlobalThis();
@@ -76,7 +74,13 @@ export function createQwikCity(opts: QwikCityNodeRequestOptions) {
       if (!res.headersSent) {
         const origin = computeOrigin(req, opts);
         const url = getUrl(req, origin);
-        const notFoundHtml = getNotFound(url.pathname);
+
+        // In the development server, we replace the getNotFound function
+        // For static paths, we assign a static "Not Found" message.
+        // This ensures consistency between development and production environments for specific URLs.
+        const notFoundHtml = isStaticPath(req.method || 'GET', url)
+          ? 'Not Found'
+          : getNotFound(url.pathname);
         res.writeHead(404, {
           'Content-Type': 'text/html; charset=utf-8',
           'X-Not-Found': url.pathname,
@@ -107,8 +111,9 @@ export function createQwikCity(opts: QwikCityNodeRequestOptions) {
         } else {
           filePath = join(staticFolder, pathname, 'index.html');
         }
-        const stream = createReadStream(filePath);
         const ext = extname(filePath).replace(/^\./, '');
+        const stream = createReadStream(filePath);
+        stream.on('error', next);
 
         const contentType = MIME_TYPES[ext];
 
@@ -120,7 +125,6 @@ export function createQwikCity(opts: QwikCityNodeRequestOptions) {
           res.setHeader('Cache-Control', opts.static.cacheControl);
         }
 
-        stream.on('error', next);
         stream.pipe(res);
 
         return;
@@ -140,18 +144,14 @@ export function createQwikCity(opts: QwikCityNodeRequestOptions) {
   };
 }
 
-/**
- * @public
- */
+/** @public */
 export interface PlatformNode {
   ssr?: true;
   incomingMessage?: IncomingMessage | Http2ServerRequest;
   node?: string;
 }
 
-/**
- * @public
- */
+/** @public */
 export interface QwikCityNodeRequestOptions extends ServerRenderOptions {
   /** Options for serving static files */
   static?: {
@@ -162,28 +162,25 @@ export interface QwikCityNodeRequestOptions extends ServerRenderOptions {
   };
 
   /**
-   * Provide a function that computes the origin of the server, used to resolve relative URLs and validate the request origin against CSRF attacks.
+   * Provide a function that computes the origin of the server, used to resolve relative URLs and
+   * validate the request origin against CSRF attacks.
    *
    * When not specified, it defaults to the `ORIGIN` environment variable (if set).
    *
-   * If `ORIGIN` is not set, it's derived from the incoming request, which is not recommended for production use.
-   * You can specify the `PROTOCOL_HEADER`, `HOST_HEADER` to `X-Forwarded-Proto` and `X-Forwarded-Host` respectively to override the default behavior.
+   * If `ORIGIN` is not set, it's derived from the incoming request, which is not recommended for
+   * production use. You can specify the `PROTOCOL_HEADER`, `HOST_HEADER` to `X-Forwarded-Proto` and
+   * `X-Forwarded-Host` respectively to override the default behavior.
    */
   getOrigin?: (req: IncomingMessage | Http2ServerRequest) => string | null;
 
-  /**
-   * Provide a function that returns a `ClientConn` for the given request.
-   */
+  /** Provide a function that returns a `ClientConn` for the given request. */
   getClientConn?: (req: IncomingMessage | Http2ServerRequest) => ClientConn;
 
-  /**
-   * @deprecated Use `getOrigin` instead.
-   */
+  /** @deprecated Use `getOrigin` instead. */
   origin?: string;
 }
 
-/**
- * @public
- */ export interface NodeRequestNextFunction {
+/** @public */
+export interface NodeRequestNextFunction {
   (err?: any): void;
 }

@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import type { TemplateSet } from '../types';
 import { getFilesDeep } from './utils';
 
@@ -41,18 +41,24 @@ export async function loadTemplates() {
 export async function readTemplates(rootDir: string) {
   const componentDir = join(rootDir, 'component');
   const routeDir = join(rootDir, 'route');
+  const markdownDir = join(rootDir, 'markdown');
+  const mdxDir = join(rootDir, 'mdx');
 
   const component = await getFilesDeep(componentDir);
   const route = await getFilesDeep(routeDir);
+  const markdown = await getFilesDeep(markdownDir);
+  const mdx = await getFilesDeep(mdxDir);
 
   return {
     component: component.map((c) => parseTemplatePath(c, 'component')),
     route: route.map((r) => parseTemplatePath(r, 'route')),
+    markdown: markdown.map((m) => parseTemplatePath(m, 'markdown')),
+    mdx: mdx.map((m) => parseTemplatePath(m, 'mdx')),
   };
 }
 
 function parseTemplatePath(path: string, type: string) {
-  const parts = path.split(`/${type}/`);
+  const parts = path.split(sep + type + sep);
 
   return {
     absolute: path,

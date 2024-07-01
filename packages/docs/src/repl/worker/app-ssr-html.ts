@@ -71,6 +71,11 @@ export const appSsrHtml = async (options: ReplInputOptions, cache: Cache, result
     base: baseUrl,
     manifest: result.manifest,
     prefetchStrategy: null as any,
+  }).catch((e) => {
+    console.error('SSR failed', e);
+    return {
+      html: `<html><h1>SSR Error</h1><pre><code>${String(e).replaceAll('<', '&lt;')}</code></pre></html>`,
+    };
   });
 
   console.log = log;
@@ -90,7 +95,7 @@ export const appSsrHtml = async (options: ReplInputOptions, cache: Cache, result
 
   if (options.buildMode !== 'production') {
     try {
-      const html = self.prettier?.format(result.html, {
+      const html = await self.prettier?.format(result.html, {
         parser: 'html',
         plugins: self.prettierPlugins,
       });

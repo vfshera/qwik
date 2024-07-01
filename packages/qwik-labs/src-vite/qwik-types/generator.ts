@@ -9,82 +9,7 @@ export async function generateRouteTypes(srcDir: string, routesDir: string, rout
 }
 
 async function generateSrcRoutesConfig(srcDir: string) {
-  const file = join(srcDir, 'routes.config.tsx');
-  const fileExists = await exists(file);
-  console.log('File exists', file, fileExists);
-  if (!fileExists) {
-    writeFile(file, CONFIG_FILE);
-  }
-}
-
-async function exists(file: string): Promise<boolean> {
-  try {
-    return (await stat(file)).isFile();
-  } catch (e) {
-    return false;
-  }
-}
-
-async function generateSrcRoutesGen(srcDir: string, routes: string[]) {
-  await writeFile(
-    join(srcDir, 'routes.gen.d.ts'),
-    prettify`
-${GENERATED_HEADER}
-
-export type AppRoutes = ${routes.map((r) => s(r)).join('|')};
-
-export interface AppRouteMap {
-  ${routes.map((r) => s(r) + ':' + toInterface('', r))}
-};
-
-export interface AppRouteParamsFunction {
-  ${routes.map((r) => `(route: ${s(r)}, ${toInterface('params', r)}): string`).join(';')}
-}
-
-export type AppLinkProps = ${routes
-      .map(
-        (route) =>
-          `{ route: ${s(route)}, ${toParams(route)
-            .map((param) => s('param:' + param) + ': string')
-            .join(';')}}`
-      )
-      .join('|')}
-`
-  );
-}
-
-function toParams(route: string) {
-  const params: string[] = [];
-  const parts = route.split('/');
-  parts.forEach((part) => {
-    if (part.startsWith('[') && part.endsWith(']')) {
-      params.push(part.substring(part.startsWith('...') ? 4 : 1, part.length - 1));
-    }
-  });
-  return params;
-}
-
-function toInterface(paramName: string, route: string): string {
-  const params: string[] = toParams(route);
-  return (
-    (paramName ? paramName + (params.length ? ':' : '?:') : '') +
-    '{' +
-    params.map((param) => param + ': string').join(';') +
-    '}'
-  );
-}
-
-const GENERATED_HEADER = `
-///////////////////////////////////////////////////////////////////////////
-/// GENERATED FILE --- DO NOT EDIT --- YOUR CHANGES WILL BE OVERWRITTEN ///
-///////////////////////////////////////////////////////////////////////////
-`;
-
-function s(text: string): string {
-  return JSON.stringify(text);
-}
-
-const CONFIG_FILE = prettify`
+  const CONFIG_FILE = await prettify`
 /**
  * This file is created as part of the typed routes, but it is intended to be modified by the developer.
  *
@@ -119,3 +44,78 @@ export function AppLink(props: AppLinkProps & QwikIntrinsicElements['a']) {
   );
 }
 `;
+
+  const file = join(srcDir, 'routes.config.tsx');
+  const fileExists = await exists(file);
+  console.log('File exists', file, fileExists);
+  if (!fileExists) {
+    writeFile(file, CONFIG_FILE);
+  }
+}
+
+async function exists(file: string): Promise<boolean> {
+  try {
+    return (await stat(file)).isFile();
+  } catch (e) {
+    return false;
+  }
+}
+
+async function generateSrcRoutesGen(srcDir: string, routes: string[]) {
+  await writeFile(
+    join(srcDir, 'routes.gen.d.ts'),
+    await prettify`
+${GENERATED_HEADER}
+
+export type AppRoutes = ${routes.map((r) => s(r)).join('|')};
+
+export interface AppRouteMap {
+  ${routes.map((r) => s(r) + ':' + toInterface('', r))}
+};
+
+export interface AppRouteParamsFunction {
+  ${routes.map((r) => `(route: ${s(r)}, ${toInterface('params', r)}): string`).join(';')}
+}
+
+export type AppLinkProps = ${routes
+      .map(
+        (route) =>
+          `{ route: ${s(route)}, ${toParams(route)
+            .map((param) => s('param:' + param) + ': string')
+            .join(';')}}`
+      )
+      .join('|')}
+`
+  );
+}
+
+function toParams(route: string) {
+  const params: string[] = [];
+  const parts = route.split('/');
+  parts.forEach((part) => {
+    if (part.startsWith('[') && part.endsWith(']')) {
+      params.push(part.substring(part.startsWith('[...') ? 4 : 1, part.length - 1));
+    }
+  });
+  return params;
+}
+
+function toInterface(paramName: string, route: string): string {
+  const params: string[] = toParams(route);
+  return (
+    (paramName ? paramName + (params.length ? ':' : '?:') : '') +
+    '{' +
+    params.map((param) => param + ': string').join(';') +
+    '}'
+  );
+}
+
+const GENERATED_HEADER = `
+///////////////////////////////////////////////////////////////////////////
+/// GENERATED FILE --- DO NOT EDIT --- YOUR CHANGES WILL BE OVERWRITTEN ///
+///////////////////////////////////////////////////////////////////////////
+`;
+
+function s(text: string): string {
+  return JSON.stringify(text);
+}

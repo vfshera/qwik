@@ -3,7 +3,7 @@ import type { ScrollHistoryState } from './scroll-restoration';
 import type { ScrollState } from './types';
 
 import { isDev } from '@builder.io/qwik/build';
-import { $ } from '@builder.io/qwik';
+import { event$ } from '@builder.io/qwik';
 
 // TODO Dedupe handler code from here and QwikCityProvider?
 // TODO Navigation API; check for support & simplify.
@@ -14,7 +14,7 @@ import { $ } from '@builder.io/qwik';
 // - Robust, fully relies only on history. (scrollRestoration = 'manual')
 
 // ! DO NOT IMPORT OR USE ANY EXTERNAL REFERENCES IN THIS SCRIPT.
-export default $((currentScript: HTMLScriptElement) => {
+export default event$((container: HTMLElement) => {
   const win: ClientSPAWindow = window;
 
   const currentPath = location.pathname + location.search;
@@ -73,9 +73,8 @@ export default $((currentScript: HTMLScriptElement) => {
       if (currentPath !== location.pathname + location.search) {
         // Hook into useNavigate context, if available.
         // We hijack a <Link> here, goes through the loader, resumes, app, etc. Simple.
-        // TODO Will only work with <Link>, is there a better way? Will `q:key` change?
-        const container = currentScript!.closest('[q\\:container]')!;
-        const link = container.querySelector('a[q\\:key="AD_1"]');
+        // TODO Will only work with <Link>, is there a better way?
+        const link = container.querySelector('a[q\\:link]');
 
         if (link) {
           // Re-acquire container, link may be in a nested container.
@@ -106,7 +105,7 @@ export default $((currentScript: HTMLScriptElement) => {
       const replaceState = history.replaceState;
 
       const prepareState = (state: any) => {
-        if (state === null || typeof state === undefined) {
+        if (state === null || typeof state === 'undefined') {
           state = {};
         } else if (state?.constructor !== Object) {
           state = { _data: state };

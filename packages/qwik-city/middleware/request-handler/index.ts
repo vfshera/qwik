@@ -1,7 +1,8 @@
-export { getErrorHtml } from './error-handler';
+export { getErrorHtml, ServerError } from './error-handler';
 export { mergeHeadersCookies } from './cookie';
 export { AbortMessage, RedirectMessage } from './redirect-handler';
 export { requestHandler } from './request-handler';
+export { _TextEncoderStream_polyfill } from './polyfill';
 export type {
   CacheControl,
   Cookie,
@@ -21,4 +22,5 @@ export type {
   DeferReturn,
   RequestEventBase,
   ClientConn,
+  EnvGetter,
 } from './types';

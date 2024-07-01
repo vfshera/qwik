@@ -4,13 +4,13 @@ import type { QPrefetchData, QPrefetchMessage } from './service-worker/types';
 // Source for what becomes innerHTML to the <ServiceWorkerRegister/> script
 
 ((
-  queuedBundleUrls: string[],
+  queuedEventDetails: any[],
   swReg?: QwikServiceWorkerRegistration,
-  sendPrefetch?: (data: QPrefetchData, qBase?: Element) => void,
+  sendPrefetch?: (data: QPrefetchData) => void,
   initServiceWorker?: () => void
 ) => {
-  sendPrefetch = (data, qBase) => {
-    qBase = document.querySelector('[q\\:base]')!;
+  sendPrefetch = (data) => {
+    const qBase = document.querySelector('[q\\:base]')!;
     if (qBase) {
       swReg!.active &&
         swReg!.active.postMessage({
@@ -22,33 +22,38 @@ import type { QPrefetchData, QPrefetchMessage } from './service-worker/types';
   };
 
   document.addEventListener('qprefetch', (ev) => {
-    const data = (ev as CustomEvent<QPrefetchData>).detail;
+    const detail = (ev as CustomEvent<QPrefetchData>).detail;
     if (swReg) {
-      sendPrefetch!(data);
-    } else if (data.bundles) {
-      queuedBundleUrls.push(...data.bundles);
+      sendPrefetch!(detail);
+    } else {
+      queuedEventDetails.push(detail);
     }
   });
 
-  navigator.serviceWorker
-    .register('__url')
-    .then((reg) => {
-      initServiceWorker = () => {
-        swReg = reg;
-        sendPrefetch!({ bundles: queuedBundleUrls });
-      };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .register('__url')
+      .then((reg) => {
+        initServiceWorker = () => {
+          swReg = reg;
+          queuedEventDetails.forEach(sendPrefetch!);
+          sendPrefetch!({ bundles: queuedEventDetails });
+        };
 
-      if (reg.installing) {
-        reg.installing.addEventListener('statechange', (ev: any) => {
-          if (ev.target.state == 'activated') {
-            initServiceWorker!();
-          }
-        });
-      } else if (reg.active) {
-        initServiceWorker!();
-      }
-    })
-    .catch((e) => console.error(e));
+        if (reg.installing) {
+          reg.installing.addEventListener('statechange', (ev: any) => {
+            if (ev.target.state == 'activated') {
+              initServiceWorker!();
+            }
+          });
+        } else if (reg.active) {
+          initServiceWorker!();
+        }
+      })
+      .catch((e) => console.error(e));
+  } else {
+    console.log('Service worker not supported in this browser.');
+  }
 })([]);
 
 interface QwikServiceWorker extends ServiceWorker {

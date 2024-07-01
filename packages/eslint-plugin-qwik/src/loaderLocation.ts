@@ -19,9 +19,9 @@ export const loaderLocation: Rule.RuleModule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Detect declaration location of loader$',
+      description: 'Detect declaration location of loader$.',
       recommended: true,
-      url: 'https://qwik.builder.io/docs/advanced/eslint/#loader-location',
+      url: 'https://qwik.dev/docs/advanced/eslint/#loader-location',
     },
     schema: [
       {
@@ -36,8 +36,15 @@ export const loaderLocation: Rule.RuleModule = {
       },
     ],
     messages: {
-      invalidLoaderLocation:
-        '`{{fnName}}()` can only be declared in `layout.tsx`, `index.tsx` and `plugin.tsx` inside the {{routesDir}} directory, instead it was declared in "{{path}}".\nPlease check the docs: https://qwik.builder.io/docs/route-loader/',
+      invalidLoaderLocation: `'{{fnName}}() are typically declared in route boundary files such as layout.tsx, index.tsx and plugin.tsx inside the {{routesDir}} directory
+(docs: https://qwik.dev/docs/route-loader/).
+
+This {{fnName}}() is declared outside of the route boundaries. This may be useful when you want to create reusable logic or a library. In such a case, it is essential that this function is re-exported from within the router boundary otherwise it will not run.
+(docs: https://qwik.dev/docs/cookbook/re-exporting-loaders/).
+
+If you understand this, you can disable this warning with:
+// eslint-disable-next-line qwik/loader-location
+`,
       missingExport:
         'The return of `{{fnName}}()` needs to be exported in the same module, like this\n```\nexport const {{id}} = {{fnName}}(() => { ... });\n```',
       wrongName:
@@ -49,9 +56,9 @@ export const loaderLocation: Rule.RuleModule = {
   create(context) {
     const routesDir = context.options?.[0]?.routesDir ?? 'src/routes';
     const path = normalizePath(context.getFilename());
-    const isLayout = /\/layout(|!|-.+)\.tsx?$/.test(path);
-    const isIndex = /\/index(|!|@.+)\.tsx?$/.test(path);
-    const isPlugin = /\/plugin(|@.+)\.tsx?$/.test(path);
+    const isLayout = /\/layout(|!|-.+)\.(j|t)sx?$/.test(path);
+    const isIndex = /\/index(|!|@.+)\.(j|t)sx?$/.test(path);
+    const isPlugin = /\/plugin(|@.+)\.(j|t)sx?$/.test(path);
     const isInsideRoutes = new RegExp(`/${routesDir}/`).test(path);
 
     const canContainLoader = isInsideRoutes && (isIndex || isLayout || isPlugin);
@@ -115,7 +122,7 @@ export const loaderLocation: Rule.RuleModule = {
           });
           return;
         }
-        if (variableDeclarator.parent.parent.type !== 'ExportNamedDeclaration') {
+        if (!isExported(variableDeclarator)) {
           context.report({
             node: variableDeclarator.id,
             messageId: 'missingExport',
@@ -273,3 +280,39 @@ export const loaderLocationExamples: QwikEslintExamples = {
     ],
   },
 };
+function isExported(variableDeclarator: Rule.Node): boolean {
+  if (variableDeclarator.parent.parent.type === 'ExportNamedDeclaration') {
+    return true;
+  }
+  if (variableDeclarator.type === 'VariableDeclarator') {
+    const id = variableDeclarator.id;
+    if ('name' in id) {
+      const name = id.name;
+      const body = getProgramBody(variableDeclarator);
+      for (let idx = 0; idx < body.length; idx++) {
+        const node = body[idx];
+        if (node.type == 'ExportNamedDeclaration') {
+          const specifiers = node.specifiers;
+          for (let specIdx = 0; specIdx < specifiers.length; specIdx++) {
+            const exportNode = specifiers[specIdx];
+            if (exportNode.type == 'ExportSpecifier') {
+              if (exportNode.exported.type == 'Identifier' && exportNode.exported.name === name) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function getProgramBody(variableDeclarator) {
+  let program: Rule.Node = variableDeclarator;
+  while (program.type !== 'Program') {
+    program = program.parent;
+  }
+  const body = program.body;
+  return body;
+}

@@ -1,12 +1,11 @@
 /* eslint-disable no-console */
-import { createApp, runCreateCli } from './create-app';
+import { runCreateCli } from './src/run-create-cli';
+import { runCreateInteractiveCli } from './src/run-create-interactive-cli';
 import { panic, printHeader } from '../qwik/src/cli/utils/utils';
-import { runCreateInteractiveCli } from './create-interactive';
 import { red, yellow } from 'kleur/colors';
+import { createAppFacade } from './src/create-app-facade';
 
 export async function runCli() {
-  console.clear();
-
   printHeader();
 
   checkNodeVersion();
@@ -14,9 +13,8 @@ export async function runCli() {
   try {
     const args = process.argv.slice(2);
 
-    if (args.length >= 2) {
-      // npm create qwik [starterId] [projectName]
-      await runCreateCli(args[0], args[1]);
+    if (args.length > 0) {
+      await runCreateCli(...args);
     } else {
       // npm create qwik
       await runCreateInteractiveCli();
@@ -46,11 +44,11 @@ function checkNodeVersion() {
     if (Number(minorVersion) < 11) {
       console.error(
         red(
-          `Node.js 18.11 or higher is REQUIRED. From Node 18.0.0 to 18.11.0, there is a bug preventing correct behaviour of Qwik. You are currently running Node.js ${version}. https://github.com/BuilderIO/qwik/issues/3035`
+          `Node.js 18.11 or higher is REQUIRED. From Node 18.0.0 to 18.11.0, there is a bug preventing correct behaviour of Qwik. You are currently running Node.js ${version}. https://github.com/QwikDev/qwik/issues/3035`
         )
       );
     }
   }
 }
 
-export { createApp, runCreateCli, runCreateInteractiveCli };
+export { createAppFacade as createApp, runCreateCli, runCreateInteractiveCli };
